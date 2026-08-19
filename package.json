@@ -1,0 +1,52 @@
+{
+    "name": "@peppermint-digital/form-builder",
+    "version": "0.1.0",
+    "description": "A drag & drop builder for data-safe form definitions in React and Vue. Owns the field contract, brings no UI library.",
+    "exports": {
+        "./core": {
+            "types": "./dist/core/index.d.ts",
+            "import": "./dist/core/index.mjs",
+            "require": "./dist/core/index.js"
+        }
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsup",
+        "dev": "tsup --watch",
+        "typecheck": "tsc --noEmit",
+        "test": "vitest run",
+        "prepare": "npm run build",
+        "prepublishOnly": "npm run build"
+    },
+    "dependencies": {
+        "@dnd-kit/core": "^6.3.1",
+        "@dnd-kit/sortable": "^10.0.0",
+        "@dnd-kit/utilities": "^3.2.2"
+    },
+    "peerDependencies": {
+        "react": ">=18.0.0",
+        "react-dom": ">=18.0.0"
+    },
+    "peerDependenciesMeta": {
+        "react": {
+            "optional": true
+        },
+        "react-dom": {
+            "optional": true
+        }
+    },
+    "devDependencies": {
+        "@types/react": "^19.0.0",
+        "tsup": "^8.3.5",
+        "typescript": "^5.7.2",
+        "vitest": "^2.1.8"
+    },
+    "license": "MIT",
+    "author": "Peppermint Digital",
+    "repository": {
+        "type": "git",
+        "url": "git+ssh://git@github.com/peppermint-digital/form-builder.git"
+    }
+}

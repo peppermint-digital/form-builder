@@ -1,0 +1,47 @@
+{
+    "name": "peppermint/form-builder",
+    "description": "Laravel-Seite des Peppermint Form-Builders: Feld-Definitionen prüfen, Datenverlust verhindern, Validierungsregeln ableiten.",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Peppermint Digital"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.0|^12.0|^13.0",
+        "illuminate/database": "^11.0|^12.0|^13.0",
+        "illuminate/validation": "^11.0|^12.0|^13.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^9.0|^10.0|^11.0",
+        "laravel/pint": "^1.0",
+        "pestphp/pest": "^3.0|^4.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Peppermint\\FormBuilder\\": "laravel/src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Peppermint\\FormBuilder\\Tests\\": "laravel/tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Peppermint\\FormBuilder\\FormBuilderServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
