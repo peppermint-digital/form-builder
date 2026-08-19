@@ -128,6 +128,38 @@ Ein Push ins Paket-Repo erreicht die Anwendungen **nicht** von selbst — dort
 muss `npm install @peppermint-digital/form-builder` laufen und die Lockfile-
 Änderung mitcommittet werden.
 
+## Der Editor
+
+```tsx
+import { FormularEditor } from '@peppermint-digital/form-builder/react';
+
+<FormularEditor
+    definition={event.form_config}
+    onChange={(definition) => setData('form_config', definition)}
+    gesperrteNamen={feldnamenMitDaten}
+    zusatzTypen={[{ wert: 'hotel_booking', label: 'Hotelbuchung' }]}
+/>
+```
+
+Felder werden gezogen — auf eine Ablagestelle **neben** einem Feld wird die
+Zeile zweispaltig, auf eine **zwischen** den Zeilen entsteht eine neue. Mehr
+als drei Spalten nimmt eine Zeile nicht an.
+
+**Jede Bewegung geht zusätzlich über Schaltflächen.** Das ist kein Zusatz,
+sondern die Bedingung dafür, dass der Baukasten ohne Maus bedienbar bleibt:
+freies Ziehen und Ablegen ist mit der Tastatur kaum zu treffen.
+
+`gesperrteNamen` zeigt im Editor dieselbe Regel, die der Wächter auf der
+Serverseite durchsetzt — das erspart den Fehlschlag beim Speichern.
+
+Vor dem Absenden bereinigen:
+
+```ts
+import { definitionBereinigen } from '@peppermint-digital/form-builder/core';
+
+put(url, { form_config: definitionBereinigen(definition) });
+```
+
 ## Die Laravel-Seite: Wächter über dem Datenvertrag
 
 Ein Formular ist gleichzeitig eine Oberfläche, die man frei gestalten können
@@ -199,8 +231,9 @@ der Anmeldung umbenannt wurden.
 
 ## Stand
 
-**v0.1** — Kern und React-Schicht (Renderer, Feld-Eingabe, Slot-Verträge,
-Standard-Bausteine) sowie die vollständige Laravel-Seite (Wertobjekte, vier
-Wächter, Regelableitung). **62 Tests** — 31 mit vitest, 31 mit Pest.
+**v0.1** — vollständig für React: Kern (Definition, Layout, Bearbeitung),
+Renderer, Editor mit Drag & Drop und die Laravel-Seite mit den vier Wächtern.
+**92 Tests** — 61 mit vitest, 31 mit Pest.
 
-Der Editor mit Drag & Drop und ein Vue-Adapter folgen.
+Ein Vue-Adapter folgt. Der Kern ist framework-agnostisch, das ist dann nur
+noch die Zeichenschicht.
