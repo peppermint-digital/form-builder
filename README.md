@@ -128,6 +128,65 @@ Ein Push ins Paket-Repo erreicht die Anwendungen **nicht** von selbst — dort
 muss `npm install @peppermint-digital/form-builder` laufen und die Lockfile-
 Änderung mitcommittet werden.
 
+## Die Laravel-Seite: Wächter über dem Datenvertrag
+
+Ein Formular ist gleichzeitig eine Oberfläche, die man frei gestalten können
+soll, und ein Datenvertrag, den man nicht brechen darf. Die Wächter
+verteidigen das zweite gegen das erste.
+
+```php
+use Peppermint\FormBuilder\Belegung\JsonSpaltenBelegung;
+use Peppermint\FormBuilder\Data\FormularDefinition;
+use Peppermint\FormBuilder\Regeln\DefinitionPruefer;
+
+$fehler = app(DefinitionPruefer::class)->pruefen(
+    neu: FormularDefinition::fromArray($request->input('form_config')),
+    bisher: FormularDefinition::fromArray($event->form_config),
+    belegung: new JsonSpaltenBelegung(
+        Registration::where('event_id', $event->id)->toBase(),
+    ),
+);
+```
+
+Geprüft wird:
+
+1. **Konfigurierte Pflichtfelder** — samt Typ. Ein Textfeld namens `email`
+   ließe jede Eingabe durch, und die Bestätigungsmail ginge an eine
+   Zeichenkette, die keine Adresse ist.
+2. **Ein Feld, das den Datensatz benennt** — aus einer Liste erlaubter Namen.
+3. **Keine doppelten Feldnamen** — zwei Felder mit demselben Namen
+   überschreiben sich, und welches gewinnt, wäre Zufall.
+4. **Die Waisen-Sperre**: ein Schlüssel, unter dem bereits Antworten liegen,
+   lässt sich nicht mehr umbenennen oder entfernen.
+
+Zu Punkt 4 gehört eine Geschichte. Am 18.08.2026 wurde in Peppermint Connect
+das Feld „Termin" aus einem Formular entfernt — danach lagen **429 Werte ohne
+Ziel** in der Datenbank. Sichtbar war nichts: Listen zeigten Lücken, Ausdrucke
+blieben leer, und es fiel erst auf, als jemand nachsah.
+
+Bewusst eine **Sperre** und kein Mitziehen der Daten: Antworten mitwandern zu
+lassen hieße, dass jedes Speichern des Formulars stillschweigend alle
+Datensätze umschreibt — eine schwere Nebenwirkung an einer Stelle, an der
+niemand sie erwartet. Die **Beschriftung** bleibt frei änderbar; genau dafür
+ist die Trennung von `name` und `label` da.
+
+### Validierungsregeln ableiten
+
+```php
+$request->validate(
+    AntwortRegeln::fuer($definition, 'form_data'),
+    attributes: AntwortRegeln::attribute($definition, 'form_data'),
+);
+```
+
+Zwei Quellen für dieselbe Aussage laufen immer auseinander. Welche von beiden
+gilt, merkt man erst, wenn jemand etwas abschickt, das nicht hätte durchgehen
+dürfen — deshalb kommen die Regeln aus der Definition selbst.
+
+Ein Detail, das leicht übersehen wird: ein **Pflicht-Ankreuzfeld** bekommt
+`accepted`, nicht `required`. Mit `required` ginge `'0'` durch — die
+Zustimmung wäre erteilt, ohne dass jemand geklickt hat.
+
 ## Der Bestandswert, den man nicht wegwerfen darf
 
 Ein gespeicherter Wert, der nicht mehr zur Auswahl steht, bleibt sichtbar —
@@ -140,6 +199,8 @@ der Anmeldung umbenannt wurden.
 
 ## Stand
 
-**v0.1** — Kern (Definition, Layout, Optionen, Bestandswerte) und React-Schicht
-(Renderer, Feld-Eingabe, Slot-Verträge, schlichte Standard-Bausteine), 31 Tests.
-Laravel-Gerüst steht, die Wächter folgen. Editor und Vue-Adapter folgen.
+**v0.1** — Kern und React-Schicht (Renderer, Feld-Eingabe, Slot-Verträge,
+Standard-Bausteine) sowie die vollständige Laravel-Seite (Wertobjekte, vier
+Wächter, Regelableitung). **62 Tests** — 31 mit vitest, 31 mit Pest.
+
+Der Editor mit Drag & Drop und ein Vue-Adapter folgen.

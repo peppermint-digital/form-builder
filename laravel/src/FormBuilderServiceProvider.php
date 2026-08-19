@@ -4,12 +4,21 @@ namespace Peppermint\FormBuilder;
 
 use Illuminate\Support\ServiceProvider;
 use Peppermint\FormBuilder\Console\InstallCommand;
+use Peppermint\FormBuilder\Regeln\DefinitionPruefer;
 
 class FormBuilderServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__.'/../config/form-builder.php', 'form-builder');
+
+        // Aus der Konfiguration gebaut, damit jede Anwendung ihre eigenen
+        // Pflichtfelder setzt. Ein Paket, das „email" fest vorschreibt, waere
+        // fuer jedes Formular falsch, das keine Mail verschickt.
+        $this->app->singleton(DefinitionPruefer::class, fn ($app): DefinitionPruefer => new DefinitionPruefer(
+            pflichtfelder: $app['config']->get('form-builder.pflichtfelder', []),
+            namensfelder: $app['config']->get('form-builder.namensfelder', []),
+        ));
     }
 
     public function boot(): void
