@@ -63,9 +63,17 @@ export function nutzbareOptionen(feld: FormularFeld): string[] {
  * Schleife aussen darf dann kein zweites Label malen, sonst steht es doppelt.
  * Die Regel haengt am Typ und gehoert deshalb hierher — wer sie in jeder Maske
  * neu beruecksichtigen muss, vergisst sie, und es faellt erst im Browser auf.
+ *
+ * `hotel_booking` stand hier urspruenglich fest verdrahtet. Das ist ein Typ,
+ * den nur Peppermint Connect kennt — in einem Paket, das mehrere Produkte
+ * benutzen, hat er nichts zu suchen. Produkteigene Typen melden ihre Regel
+ * jetzt selbst an.
  */
-export function labelStehtImFeld(typ: string): boolean {
-    return typ === 'checkbox' || typ === 'hotel_booking';
+export function labelStehtImFeld(
+    typ: string,
+    eigeneMitLabelImFeld: string[] = [],
+): boolean {
+    return typ === 'checkbox' || eigeneMitLabelImFeld.includes(typ);
 }
 
 /** Eine Zeile mit aufgeloesten Feldern statt mit Namen. */
@@ -172,4 +180,45 @@ export function felderInReihenfolge(
 /** Das Gegenstueck zu `layoutAufloesen` fuer den Editor. */
 export function zeileAusFeldern(namen: string[][]): LayoutZeile {
     return { type: 'row', columns: namen };
+}
+
+/** Eine Option, wie sie angezeigt wird. */
+export interface AnzeigeOption {
+    wert: string;
+    label: string;
+    /** Wahr, wenn dieser Wert nur noch da ist, weil er gespeichert war. */
+    bestandswert?: boolean;
+}
+
+/**
+ * Die Optionen eines Feldes, ergaenzt um einen gespeicherten Fremdwert.
+ *
+ * Ein Wert, der nicht (mehr) zur Auswahl steht, muss sichtbar bleiben — sonst
+ * zeigt die Maske ein leeres Feld, und das naechste Speichern wirft den Wert
+ * stillschweigend weg. Es faellt niemandem auf: Die Maske sieht aus, als waere
+ * dort nie etwas gewesen.
+ *
+ * Vorkommen in der Praxis: Angaben aus einem CSV-Import und Optionen, die nach
+ * der Anmeldung umbenannt wurden.
+ *
+ * Steht bewusst hier und nicht in der React-Schicht — ein Vue-Adapter braucht
+ * dieselbe Regel, und zweimal geschrieben waere sie zweimal zu pflegen.
+ */
+export function optionenMitBestandswert(
+    feld: FormularFeld,
+    wert: string,
+    hinweis = '(nicht mehr zur Auswahl)',
+): AnzeigeOption[] {
+    const optionen = nutzbareOptionen(feld);
+    const anzeige: AnzeigeOption[] = optionen.map((o) => ({ wert: o, label: o }));
+
+    // Ohne Optionsliste gibt es nichts, wovon der Wert abweichen koennte.
+    if (wert === '' || optionen.length === 0 || optionen.includes(wert)) {
+        return anzeige;
+    }
+
+    return [
+        ...anzeige,
+        { wert, label: `${wert} ${hinweis}`.trim(), bestandswert: true },
+    ];
 }

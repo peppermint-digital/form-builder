@@ -6,6 +6,7 @@ import {
     labelStehtImFeld,
     layoutAufloesen,
     nutzbareOptionen,
+    optionenMitBestandswert,
 } from '../definition';
 import type { FormularFeld } from '../types';
 
@@ -67,10 +68,14 @@ describe('nutzbareOptionen', () => {
 });
 
 describe('labelStehtImFeld', () => {
-    it('gilt fuer Ankreuzfelder und den Connect-eigenen Typ', () => {
+    it('gilt fuer Ankreuzfelder', () => {
         expect(labelStehtImFeld('checkbox')).toBe(true);
-        expect(labelStehtImFeld('hotel_booking')).toBe(true);
         expect(labelStehtImFeld('text')).toBe(false);
+    });
+
+    it('kennt produkteigene Typen nur, wenn die Anwendung sie anmeldet', () => {
+        expect(labelStehtImFeld('hotel_booking')).toBe(false);
+        expect(labelStehtImFeld('hotel_booking', ['hotel_booking'])).toBe(true);
     });
 });
 
@@ -156,5 +161,40 @@ describe('layoutAufloesen', () => {
             title: 'Anreise',
             description: 'Bitte ausfuellen',
         });
+    });
+});
+
+describe('optionenMitBestandswert', () => {
+    it('haengt einen gespeicherten Wert an, der nicht mehr zur Auswahl steht', () => {
+        const optionen = optionenMitBestandswert(
+            feld('anrede', { options: ['Frau', 'Herr'] }),
+            'Divers',
+        );
+
+        expect(optionen).toHaveLength(3);
+        expect(optionen[2]).toEqual({
+            wert: 'Divers',
+            label: 'Divers (nicht mehr zur Auswahl)',
+            bestandswert: true,
+        });
+    });
+
+    it('haengt nichts an, wenn der Wert zur Auswahl steht', () => {
+        const optionen = optionenMitBestandswert(
+            feld('anrede', { options: ['Frau', 'Herr'] }),
+            'Frau',
+        );
+
+        expect(optionen).toHaveLength(2);
+    });
+
+    it('haengt nichts an, wenn nichts gespeichert ist', () => {
+        expect(
+            optionenMitBestandswert(feld('anrede', { options: ['Frau'] }), ''),
+        ).toHaveLength(1);
+    });
+
+    it('laesst ein Freitextfeld unangetastet — dort gibt es keine Abweichung', () => {
+        expect(optionenMitBestandswert(feld('name'), 'Irgendwas')).toEqual([]);
     });
 });

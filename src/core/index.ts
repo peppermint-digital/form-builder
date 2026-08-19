@@ -4,9 +4,11 @@ export {
     labelStehtImFeld,
     layoutAufloesen,
     nutzbareOptionen,
+    optionenMitBestandswert,
     zeileAusFeldern,
 } from './definition';
 export type {
+    AnzeigeOption,
     AufgeloesteZeile,
     AufgeloesterAbschnitt,
     AufgeloesterKnoten,
