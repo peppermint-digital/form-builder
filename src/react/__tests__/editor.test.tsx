@@ -65,12 +65,12 @@ describe('FormularEditor', () => {
         expect(neu.fields[0]?.label).toBe('Vorname');
     });
 
-    it('sperrt den Schluessel eines Feldes, unter dem Antworten liegen', () => {
+    it('sperrt den Schluessel eines gesperrten Feldes', () => {
         render(
             <FormularEditor
                 definition={definition(['termin'])}
                 onChange={() => {}}
-                gesperrteNamen={['termin']}
+                gesperrteFelder={{ termin: 'Hier liegen bereits Antworten.' }}
             />,
         );
 
@@ -79,7 +79,44 @@ describe('FormularEditor', () => {
         const namensfeld = screen.getAllByDisplayValue('termin')[1] as HTMLInputElement;
 
         expect(namensfeld.disabled).toBe(true);
-        expect(screen.getByText(/nicht mehr auffindbar/)).toBeDefined();
+    });
+
+    it('zeigt die Begruendung des Produkts, nicht eine eigene', () => {
+        // Der Kern der Schnittstelle: Das Paket weiss nicht, WARUM ein Feld
+        // gesperrt ist. Frueher stand hier ein fester Satz ueber bereits
+        // vorhandene Antworten — fuer ein Produkt, das Felder aus einem anderen
+        // Grund sperrt, war der schlicht falsch.
+        render(
+            <FormularEditor
+                definition={definition(['termin'])}
+                onChange={() => {}}
+                gesperrteFelder={{ termin: 'Wird für die Rechnung gebraucht.' }}
+            />,
+        );
+
+        fireEvent.click(screen.getByText('Bearbeiten'));
+
+        expect(screen.getByText('Wird für die Rechnung gebraucht.')).toBeDefined();
+    });
+
+    it('laesst ein gesperrtes Feld nicht entfernen', () => {
+        const onChange = vi.fn();
+
+        render(
+            <FormularEditor
+                definition={definition(['termin'])}
+                onChange={onChange}
+                gesperrteFelder={{ termin: 'Wird für die Rechnung gebraucht.' }}
+            />,
+        );
+
+        const loeschen = screen.getByLabelText('termin entfernen') as HTMLButtonElement;
+
+        expect(loeschen.disabled).toBe(true);
+
+        fireEvent.click(loeschen);
+
+        expect(onChange).not.toHaveBeenCalled();
     });
 
     it('laesst die Beschriftung auch bei gesperrtem Schluessel frei', () => {
@@ -87,7 +124,7 @@ describe('FormularEditor', () => {
             <FormularEditor
                 definition={definition(['termin'])}
                 onChange={() => {}}
-                gesperrteNamen={['termin']}
+                gesperrteFelder={{ termin: 'Hier liegen bereits Antworten.' }}
             />,
         );
 

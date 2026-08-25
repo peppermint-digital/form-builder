@@ -33,11 +33,18 @@ export interface FormularEditorProps {
     definition: RoheDefinition;
     onChange: (definition: FormularDefinition) => void;
     /**
-     * Feldnamen, unter denen bereits Antworten liegen. Ihr Schlüssel ist
-     * gesperrt — dieselbe Regel, die der Wächter auf der Serverseite
-     * durchsetzt. Sie hier zu zeigen erspart den Fehlschlag beim Speichern.
+     * Gesperrte Felder: Feldname → Begründung, die der Nutzer lesen soll.
+     *
+     * Ein gesperrtes Feld lässt sich weder umbenennen noch entfernen. WARUM es
+     * gesperrt ist, entscheidet das Produkt und nicht dieses Paket — der eine
+     * sperrt Felder, unter denen bereits Antworten liegen, der andere solche,
+     * die er für seine Rechnungen braucht. Ein hier fest verdrahteter Grund
+     * wäre eine Regel des einen Produkts, die alle anderen mittragen müssten.
+     *
+     * Die Sperre hier zu zeigen erspart den Fehlschlag beim Speichern; der
+     * Wächter auf der Serverseite bleibt die verbindliche Stelle.
      */
-    gesperrteNamen?: string[];
+    gesperrteFelder?: Record<string, string>;
     zusatzTypen?: FeldTypAuswahl[];
 }
 
@@ -117,7 +124,7 @@ function ZiehbaresFeld({
 export default function FormularEditor({
     definition,
     onChange,
-    gesperrteNamen = [],
+    gesperrteFelder = {},
     zusatzTypen = [],
 }: FormularEditorProps) {
     const [offen, setOffen] = useState<string | null>(null);
@@ -268,6 +275,8 @@ export default function FormularEditor({
                                                                 type="button"
                                                                 className="pm-fb-knopf pm-fb-knopf--gefahr"
                                                                 aria-label={`${feld.label} entfernen`}
+                                                                disabled={name in gesperrteFelder}
+                                                                title={gesperrteFelder[name]}
                                                                 onClick={() =>
                                                                     onChange(feldEntfernen(gelesen, name))
                                                                 }
@@ -281,9 +290,7 @@ export default function FormularEditor({
                                                         <Feldmaske
                                                             feld={feld}
                                                             zusatzTypen={zusatzTypen}
-                                                            schluesselGesperrt={gesperrteNamen.includes(
-                                                                name,
-                                                            )}
+                                                            sperrgrund={gesperrteFelder[name]}
                                                             onChange={(aenderungen) => {
                                                                 onChange(
                                                                     feldAendern(gelesen, name, aenderungen),

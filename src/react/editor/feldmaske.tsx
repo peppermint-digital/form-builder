@@ -22,10 +22,14 @@ interface Props {
     feld: FormularFeld;
     onChange: (aenderungen: Partial<FormularFeld>) => void;
     /**
-     * Wahr, wenn unter diesem Namen bereits Antworten liegen. Dann ist der
-     * Schluessel gesperrt — die Beschriftung bleibt frei.
+     * Gesetzt, wenn dieses Feld gesperrt ist — der Text ist die Begründung, die
+     * der Nutzer lesen soll. Sie kommt vom Produkt: Der eine sperrt Felder,
+     * unter denen bereits Antworten liegen, der andere solche, die er für seine
+     * Rechnungen braucht. Der Schlüssel ist dann fest, die Beschriftung bleibt
+     * frei — sie ist das Einzige an einem gesperrten Feld, das dem Nutzer
+     * gehört.
      */
-    schluesselGesperrt?: boolean;
+    sperrgrund?: string;
     /** Zusaetzliche, produkteigene Feldtypen. */
     zusatzTypen?: FeldTypAuswahl[];
 }
@@ -33,7 +37,7 @@ interface Props {
 export default function Feldmaske({
     feld,
     onChange,
-    schluesselGesperrt = false,
+    sperrgrund,
     zusatzTypen = [],
 }: Props) {
     const typen = [...STANDARD_TYPEN, ...zusatzTypen];
@@ -56,15 +60,11 @@ export default function Feldmaske({
                     <input
                         className="pm-fb-eingabe"
                         value={feld.name}
-                        disabled={schluesselGesperrt}
+                        disabled={sperrgrund !== undefined}
                         onChange={(e) => onChange({ name: e.target.value })}
                     />
-                    {schluesselGesperrt && (
-                        <small className="pm-fb-hinweis">
-                            Unter diesem Namen liegen bereits Antworten. Er lässt sich
-                            nicht mehr ändern — die Werte wären danach nicht mehr
-                            auffindbar. Die Beschriftung kannst du frei ändern.
-                        </small>
+                    {sperrgrund !== undefined && (
+                        <small className="pm-fb-hinweis">{sperrgrund}</small>
                     )}
                 </label>
             </div>
