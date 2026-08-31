@@ -4,8 +4,10 @@ import {
     Controls,
     MarkerType,
     ReactFlow,
+    ReactFlowProvider,
     useEdgesState,
     useNodesState,
+    useReactFlow,
     type Connection,
     type Edge,
     type Node,
@@ -92,13 +94,29 @@ const KEINE_TYPEN: FeldTypAuswahl[] = [];
  * entsteht dann aus der Reihenfolge, und zwar beim zweiten Oeffnen genauso wie
  * beim ersten.
  */
-export default function GraphEditor({
+/**
+ * `useReactFlow` braucht einen Provider ueber sich.
+ *
+ * `<ReactFlow>` stellt den Kontext nur seinen KINDERN bereit — die Komponente,
+ * die das Diagramm rendert, steht darueber und saehe ihn nicht.
+ */
+export default function GraphEditor(props: GraphEditorProps) {
+    return (
+        <ReactFlowProvider>
+            <GraphEditorInhalt {...props} />
+        </ReactFlowProvider>
+    );
+}
+
+function GraphEditorInhalt({
     definition,
     onChange,
     gesperrteFelder = KEINE_SPERREN,
     hoehe = '600px',
     zusatzTypen = KEINE_TYPEN,
 }: GraphEditorProps) {
+    const { getIntersectingNodes } = useReactFlow();
+
     // Die Knoten-Kennung mit Praefix, nicht der nackte Name: sonst waere
     // eine Gruppe `g1` von einem Feld `g1` nicht zu unterscheiden.
     const [gewaehlt, setGewaehlt] = useState<string | null>(null);
@@ -289,31 +307,17 @@ export default function GraphEditor({
                 return;
             }
 
-            const mitte = {
-                x: absolutX(bewegt, knoten) + (bewegt.width ?? 0) / 2,
-                y: absolutY(bewegt, knoten) + (bewegt.height ?? 0) / 2,
-            };
+            // Die Ueberschneidung kommt aus `getIntersectingNodes` und nicht
+            // aus eigener Rechnerei. Der erste Versuch hatte die absoluten
+            // Rechtecke selbst aufaddiert — und traf nicht: React Flow fuehrt
+            // Positionen, Elternversatz und gemessene Groessen in seinem
+            // eigenen Speicher, und was am Knotenobjekt steht, ist nicht
+            // zwangslaeufig das, womit gezeichnet wurde.
+            const beruehrt = getIntersectingNodes(bewegt);
 
-            const enthaelt = (kandidat: Node) => {
-                const x = absolutX(kandidat, knoten);
-                const y = absolutY(kandidat, knoten);
-
-                return (
-                    mitte.x >= x &&
-                    mitte.x <= x + (kandidat.width ?? 0) &&
-                    mitte.y >= y &&
-                    mitte.y <= y + (kandidat.height ?? 0)
-                );
-            };
-
-            // Auf einem anderen FELD abgelegt heisst „nebeneinander" — dieselbe
-            // Vokabel wie im Listen-Editor. Das wird zuerst geprueft: ein Feld
-            // liegt immer auch ueber dem Rahmen, in dem es steckt, und der
-            // Rahmen wuerde sonst gewinnen.
-            const nachbar = knoten.find(
-                (eintrag) =>
-                    eintrag.type === 'feld' && eintrag.id !== bewegt.id && enthaelt(eintrag),
-            );
+            // Felder zuerst: ein Feld liegt immer auch ueber dem Rahmen, in
+            // dem es steckt, und der Rahmen wuerde sonst gewinnen.
+            const nachbar = beruehrt.find((eintrag) => eintrag.type === 'feld');
 
             if (nachbar) {
                 const nachbarBezug = knotenRef(nachbar.id);
@@ -330,12 +334,17 @@ export default function GraphEditor({
                 return;
             }
 
-            const treffer = knoten
-                .filter((eintrag) => eintrag.type === 'gruppe' || eintrag.type === 'schritt')
-                .filter(enthaelt)
+            // Der INNERSTE Rahmen gewinnt: bei einer Gruppe in einem Schritt
+            // ist die Gruppe gemeint, sonst waere jede Gruppe unerreichbar,
+            // sobald sie in einem Schritt liegt.
+            const treffer = beruehrt
+                .filter(
+                    (eintrag) => eintrag.type === 'gruppe' || eintrag.type === 'schritt',
+                )
                 .sort(
                     (a, b) =>
-                        (a.width ?? 0) * (a.height ?? 0) - (b.width ?? 0) * (b.height ?? 0),
+                        (a.measured?.width ?? 0) * (a.measured?.height ?? 0) -
+                        (b.measured?.width ?? 0) * (b.measured?.height ?? 0),
                 );
 
             const ziel = treffer[0] ? knotenRef(treffer[0].id)?.ref ?? null : null;
@@ -352,7 +361,7 @@ export default function GraphEditor({
                 anordnungVergessen(feldInRahmen(gelesen, bezug.ref, ziel), bewegt.id),
             );
         },
-        [gelesen, knoten, onChange],
+        [gelesen, getIntersectingNodes, onChange],
     );
 
     const verbinden = useCallback(
@@ -750,27 +759,4 @@ function BedingungAnlegen({
             </button>
         </div>
     );
-}
-
-/**
- * Die absolute Position eines Knotens.
- *
- * React Flow speichert die Position von Kindern RELATIV zum Rahmen. Wer
- * Flaechen vergleichen will, muss die Elternpositionen aufaddieren — sonst
- * liegt ein Feld in einer Gruppe rechnerisch immer oben links im Bild.
- */
-function absolutX(knoten: Node, alle: Node[]): number {
-    const eltern = knoten.parentId
-        ? alle.find((eintrag) => eintrag.id === knoten.parentId)
-        : undefined;
-
-    return knoten.position.x + (eltern ? absolutX(eltern, alle) : 0);
-}
-
-function absolutY(knoten: Node, alle: Node[]): number {
-    const eltern = knoten.parentId
-        ? alle.find((eintrag) => eintrag.id === knoten.parentId)
-        : undefined;
-
-    return knoten.position.y + (eltern ? absolutY(eltern, alle) : 0);
 }
