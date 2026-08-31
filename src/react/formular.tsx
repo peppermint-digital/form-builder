@@ -85,9 +85,29 @@ export default function FormularRenderer({
     const stand = sichtbarkeit(gelesen, werte);
     const alleSchritte = schritteAufloesen(gelesen);
 
-    const sichtbareSchritte = alleSchritte.filter(
-        (schritt) => schritt.implizit || stand.sichtbareSchritte.has(schritt.id),
-    );
+    const sichtbareSchritte = alleSchritte.filter((schritt) => {
+        if (!schritt.implizit && !stand.sichtbareSchritte.has(schritt.id)) {
+            return false;
+        }
+
+        const felder = felderVon(schritt.knoten);
+
+        // Ein Schritt, dessen Felder ALLE bedingt verborgen sind, ist eine
+        // leere Seite mit Weiter-Schaltflaeche. Bei einem bedingten Formular
+        // ist das der Normalfall und nicht die Ausnahme: „zeig die
+        // Hotelfragen nur bei Uebernachtung" heisst fuer alle anderen eine
+        // Seite, durch die sie klicken muessen — und es sieht aus wie ein
+        // Fehler in der Anmeldung.
+        //
+        // Ein Schritt GANZ ohne Felder bleibt dagegen stehen: das ist eine
+        // gewollte Textseite mit Abschnitten, und die duerfte nicht
+        // verschwinden, nur weil nichts auszufuellen ist.
+        if (felder.length === 0) {
+            return true;
+        }
+
+        return felder.some((name) => stand.sichtbareFelder.has(name));
+    });
 
     // Alle Schritte verborgen: das ist eine kaputte Definition, kein
     // Formular. Lieber nichts zeichnen als eine leere Seite mit

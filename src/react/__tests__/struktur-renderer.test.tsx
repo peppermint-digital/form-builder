@@ -289,4 +289,68 @@ describe('Schritte', () => {
 
         expect(screen.getByText('Absenden')).toBeDefined();
     });
+
+    it('überspringt einen Schritt, dessen Felder alle verborgen sind', () => {
+        // Bei einem bedingten Formular ist das der Normalfall: „zeig die
+        // Hotelfragen nur bei Übernachtung" heißt für alle anderen eine leere
+        // Seite, durch die sie klicken müssen — und es sieht aus wie ein
+        // Fehler in der Anmeldung.
+        zeichne(
+            {
+                fields: [feld('anreise'), feld('hotel'), feld('ende')],
+                layout: [
+                    { type: 'step', id: 's1', children: [{ type: 'row', columns: [['anreise']] }] },
+                    { type: 'step', id: 's2', children: [{ type: 'row', columns: [['hotel']] }] },
+                    { type: 'step', id: 's3', children: [{ type: 'row', columns: [['ende']] }] },
+                ],
+                conditions: [zeigeWenn('hotel', 'anreise', 'ja')],
+            },
+            { anreise: 'nein' },
+        );
+
+        expect(screen.getByText('Schritt 1 von 2')).toBeDefined();
+
+        fireEvent.click(screen.getByText('Weiter'));
+
+        // Nicht die leere Hotel-Seite, sondern gleich die letzte.
+        expect(screen.getByLabelText('ende')).toBeDefined();
+    });
+
+    it('behält einen Schritt, der gar keine Felder hat', () => {
+        // Eine gewollte Textseite darf nicht verschwinden, nur weil nichts
+        // auszufüllen ist.
+        zeichne({
+            fields: [feld('a')],
+            layout: [
+                {
+                    type: 'step',
+                    id: 's1',
+                    children: [{ type: 'section', title: 'Willkommen' }],
+                },
+                { type: 'step', id: 's2', children: [{ type: 'row', columns: [['a']] }] },
+            ],
+        });
+
+        expect(screen.getByText('Willkommen')).toBeDefined();
+        expect(screen.getByText('Schritt 1 von 2')).toBeDefined();
+    });
+
+    it('zeigt den Schritt wieder, sobald die Bedingung zutrifft', () => {
+        const definition: FormularDefinition = {
+            fields: [feld('anreise'), feld('hotel')],
+            layout: [
+                { type: 'step', id: 's1', children: [{ type: 'row', columns: [['anreise']] }] },
+                { type: 'step', id: 's2', children: [{ type: 'row', columns: [['hotel']] }] },
+            ],
+            conditions: [zeigeWenn('hotel', 'anreise', 'ja')],
+        };
+
+        const { unmount } = zeichne(definition, { anreise: 'nein' });
+        // Nur noch eine Seite — die zweite hätte nichts zu zeigen.
+        expect(screen.queryByText('Schritt 1 von 2')).toBeNull();
+        unmount();
+
+        zeichne(definition, { anreise: 'ja' });
+        expect(screen.getByText('Schritt 1 von 2')).toBeDefined();
+    });
 });
