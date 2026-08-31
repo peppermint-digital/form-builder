@@ -400,3 +400,36 @@
     text-transform: uppercase;
     opacity: 0.7;
 }
+
+.pm-fb-graph__anlegen {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
+    margin-right: auto;
+}
+
+.pm-fb-graph__feld {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    font-size: 0.75rem;
+}
+
+.pm-fb-graph__warnung {
+    margin: 0 0 0.5rem;
+    font-size: 0.875rem;
+    color: #dc2626;
+}
+
+.pm-fb-knoten--regel {
+    border-style: dashed;
+}
+
+.pm-fb-knoten--kreis {
+    border-color: #dc2626;
+}
+
+.pm-fb-knoten__warnung {
+    font-size: 0.6875rem;
+    color: #dc2626;
+}

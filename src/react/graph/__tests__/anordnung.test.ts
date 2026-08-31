@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { FormularDefinition, FormularFeld } from '../../../core';
 import { knotenAusDefinition, MASSE, positionenSchreiben } from '../anordnung';
+import { knotenId } from '../kennung';
 
 const feld = (name: string, rest: Partial<FormularFeld> = {}): FormularFeld => ({
     name,
@@ -14,8 +15,26 @@ describe('knotenAusDefinition', () => {
     it('macht aus jedem Feld einen Knoten', () => {
         const knoten = knotenAusDefinition({ fields: [feld('a'), feld('b')] });
 
-        expect(knoten.map((k) => k.id)).toEqual(['a', 'b']);
+        // Mit Praefix: ein Feld `g1` und eine Gruppe `g1` sind zwei Dinge.
+        // Ohne waeren sie im Graphen ein einziger Knoten.
+        expect(knoten.map((k) => k.id)).toEqual(['feld:a', 'feld:b']);
+        expect(knoten.map((k) => k.ref)).toEqual(['a', 'b']);
         expect(knoten.every((k) => k.art === 'feld')).toBe(true);
+    });
+
+    it('haelt Feld und Gruppe mit gleichem Namen auseinander', () => {
+        const knoten = knotenAusDefinition({
+            fields: [feld('g1')],
+            layout: [
+                { type: 'group', id: 'g1', children: [{ type: 'row', columns: [['g1']] }] },
+            ],
+        });
+
+        const kennungen = knoten.map((k) => k.id);
+
+        expect(new Set(kennungen).size).toBe(kennungen.length);
+        expect(kennungen).toContain('feld:g1');
+        expect(kennungen).toContain('gruppe:g1');
     });
 
     it('ordnet dieselbe Definition immer gleich an', () => {
@@ -41,8 +60,8 @@ describe('knotenAusDefinition', () => {
             ],
         });
 
-        expect(knoten.find((k) => k.id === 'g1')?.art).toBe('gruppe');
-        expect(knoten.find((k) => k.id === 'a')?.parentId).toBe('g1');
+        expect(knoten.find((k) => k.id === 'gruppe:g1')?.art).toBe('gruppe');
+        expect(knoten.find((k) => k.id === 'feld:a')?.parentId).toBe('gruppe:g1');
     });
 
     it('macht den Rahmen gross genug fuer seinen Inhalt', () => {
@@ -64,8 +83,8 @@ describe('knotenAusDefinition', () => {
             ],
         });
 
-        const rahmen = knoten.find((k) => k.id === 'g1')!;
-        const unterstes = knoten.find((k) => k.id === 'b')!;
+        const rahmen = knoten.find((k) => k.id === 'gruppe:g1')!;
+        const unterstes = knoten.find((k) => k.id === 'feld:b')!;
 
         expect(rahmen.hoehe).toBeGreaterThanOrEqual(
             unterstes.position.y + unterstes.hoehe,
@@ -78,7 +97,7 @@ describe('knotenAusDefinition', () => {
     it('laesst gespeicherten Positionen den Vortritt', () => {
         const knoten = knotenAusDefinition({
             fields: [feld('a')],
-            graph: { positions: { a: { x: 500, y: 300 } } },
+            graph: { positions: { [knotenId('feld', 'a')]: { x: 500, y: 300 } } },
         });
 
         expect(knoten[0]!.position).toEqual({ x: 500, y: 300 });
@@ -92,8 +111,8 @@ describe('knotenAusDefinition', () => {
             ],
         });
 
-        expect(knoten.find((k) => k.id === 's1')?.art).toBe('schritt');
-        expect(knoten.find((k) => k.id === 'a')?.parentId).toBe('s1');
+        expect(knoten.find((k) => k.id === 'schritt:s1')?.art).toBe('schritt');
+        expect(knoten.find((k) => k.id === 'feld:a')?.parentId).toBe('schritt:s1');
     });
 
     it('nimmt auch ein Feld auf, das im Layout keinen Platz hat', () => {
@@ -104,7 +123,7 @@ describe('knotenAusDefinition', () => {
             layout: [{ type: 'row', columns: [['a']] }],
         });
 
-        expect(knoten.map((k) => k.id)).toContain('vergessen');
+        expect(knoten.map((k) => k.ref)).toContain('vergessen');
     });
 
     it('stapelt Knoten ohne gespeicherte Position ueberschneidungsfrei', () => {
@@ -129,7 +148,7 @@ describe('positionenSchreiben', () => {
     it('entfernt eine vorhandene Anordnung beim Zuruecksetzen', () => {
         const definition: FormularDefinition = {
             fields: [feld('a')],
-            graph: { positions: { a: { x: 5, y: 5 } } },
+            graph: { positions: { 'feld:a': { x: 5, y: 5 } } },
         };
 
         expect(positionenSchreiben(definition, {})).not.toHaveProperty('graph');
@@ -150,7 +169,7 @@ describe('positionenSchreiben', () => {
             ],
         };
 
-        const danach = positionenSchreiben(definition, { a: { x: 1, y: 2 } });
+        const danach = positionenSchreiben(definition, { 'feld:a': { x: 1, y: 2 } });
 
         expect(danach.fields).toEqual(definition.fields);
         expect(danach.layout).toEqual(definition.layout);

@@ -92,8 +92,55 @@ export function SchrittKnoten({ data, selected }: NodeProps) {
     );
 }
 
+export interface RegelKnotenDaten extends Record<string, unknown> {
+    titel: string;
+    imKreis: boolean;
+    entfernen: () => void;
+}
+
+/**
+ * Eine Bedingung als eigener Knoten.
+ *
+ * Nicht als blosse Kante, weil eine Regel mehrere Pruefungen haben kann: sie
+ * muessen sichtbar an EINER Stelle zusammenlaufen. Als Kanten waere „A und B,
+ * dann zeige C" nicht von „A oder B" zu unterscheiden.
+ */
+export function RegelKnoten({ data, selected }: NodeProps) {
+    const daten = data as RegelKnotenDaten;
+
+    return (
+        <div
+            className={`pm-fb-knoten pm-fb-knoten--regel${
+                selected ? ' pm-fb-knoten--gewaehlt' : ''
+            }${daten.imKreis ? ' pm-fb-knoten--kreis' : ''}`}
+        >
+            <Handle type="target" position={Position.Left} />
+
+            <div className="pm-fb-knoten__zeile">
+                <span className="pm-fb-knoten__titel">{daten.titel}</span>
+                <button
+                    type="button"
+                    className="pm-fb-knopf pm-fb-knopf--gefahr"
+                    onClick={daten.entfernen}
+                >
+                    Löschen
+                </button>
+            </div>
+
+            {daten.imKreis && (
+                <div className="pm-fb-knoten__warnung">
+                    Hängt im Kreis — wird nicht angewendet
+                </div>
+            )}
+
+            <Handle type="source" position={Position.Right} />
+        </div>
+    );
+}
+
 export const KNOTENARTEN = {
     feld: FeldKnoten,
     gruppe: GruppeKnoten,
     schritt: SchrittKnoten,
+    regel: RegelKnoten,
 };

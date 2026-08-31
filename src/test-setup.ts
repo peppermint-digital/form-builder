@@ -31,9 +31,7 @@ Object.defineProperties(globalThis.HTMLElement.prototype, {
     offsetWidth: { get: () => 800, configurable: true },
 });
 
-globalThis.SVGElement.prototype.getBBox ??= (() => ({
-    x: 0,
-    y: 0,
-    width: 0,
-    height: 0,
-})) as never;
+// `getBBox` sitzt an `SVGGraphicsElement`, nicht an `SVGElement` — jsdom
+// kennt es an beiden nicht.
+(globalThis.SVGElement.prototype as unknown as Record<string, unknown>).getBBox ??=
+    () => ({ x: 0, y: 0, width: 0, height: 0 });

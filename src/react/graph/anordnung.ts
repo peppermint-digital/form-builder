@@ -4,6 +4,7 @@ import {
     type FormularDefinition,
     type Knotenposition,
 } from '../../core';
+import { knotenId, type Knotenart } from './kennung';
 
 /**
  * Die Masse, nach denen der Graph aufgebaut wird.
@@ -20,11 +21,11 @@ export const MASSE = {
     kopf: 44,
 } as const;
 
-export type Knotenart = 'feld' | 'gruppe' | 'schritt';
-
 export interface GraphKnoten {
-    /** Feldname bei `feld`, sonst die Kennung von Gruppe oder Schritt. */
+    /** Mit Praefix — siehe `kennung.ts`, warum der nicht wegdarf. */
     id: string;
+    /** Der Name bzw. die Kennung ohne Praefix. */
+    ref: string;
     art: Knotenart;
     /** Kennung des umgebenden Rahmens; fehlt auf oberster Ebene. */
     parentId?: string;
@@ -66,10 +67,11 @@ export function knotenAusDefinition(
             if (eintrag.type === 'row') {
                 for (const feld of eintrag.columns.flat()) {
                     gebaut.push({
-                        id: feld.name,
+                        id: knotenId('feld', feld.name),
+                        ref: feld.name,
                         art: 'feld',
                         ...(eltern ? { parentId: eltern } : {}),
-                        position: gespeichert[feld.name] ?? {
+                        position: gespeichert[knotenId('feld', feld.name)] ?? {
                             x: MASSE.rand,
                             y: laufendeHoehe + MASSE.rand,
                         },
@@ -90,11 +92,14 @@ export function knotenAusDefinition(
             // sie ergibt sich aus dem, was darin liegt.
             const vorher = gebaut.length;
 
+            const art: Knotenart = eintrag.type === 'group' ? 'gruppe' : 'schritt';
+
             gebaut.push({
-                id: eintrag.id,
-                art: eintrag.type === 'group' ? 'gruppe' : 'schritt',
+                id: knotenId(art, eintrag.id),
+                ref: eintrag.id,
+                art,
                 ...(eltern ? { parentId: eltern } : {}),
-                position: gespeichert[eintrag.id] ?? {
+                position: gespeichert[knotenId(art, eintrag.id)] ?? {
                     x: MASSE.rand,
                     y: laufendeHoehe + MASSE.rand,
                 },
@@ -105,10 +110,10 @@ export function knotenAusDefinition(
                     (eintrag.type === 'group' ? 'Gruppe' : 'Schritt'),
             });
 
-            gehen(eintrag.children, eintrag.id);
+            gehen(eintrag.children, knotenId(art, eintrag.id));
 
             const rahmen = gebaut[vorher]!;
-            const masse = rahmenMasse(gebaut.slice(vorher + 1), eintrag.id);
+            const masse = rahmenMasse(gebaut.slice(vorher + 1), rahmen.id);
 
             rahmen.breite = masse.breite;
             rahmen.hoehe = masse.hoehe;
