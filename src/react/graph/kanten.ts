@@ -74,6 +74,12 @@ export function pruefungText(
 export function regelKnoten(
     definition: FormularDefinition,
     zyklen: string[],
+    /**
+     * Unterkante der Struktur. Die Regeln liegen darunter, in einer eigenen
+     * Bahn — an einer festen Stelle abgelegt liefen sie bei einem Formular
+     * mit Schritten mitten durch die Knoten.
+     */
+    unterkante = 0,
 ): RegelKnoten[] {
     const gespeichert = definition.graph?.positions ?? {};
 
@@ -84,10 +90,8 @@ export function regelKnoten(
             id,
             ref: regel.id,
             position: gespeichert[id] ?? {
-                // Rechts neben der Feldspalte, damit die Kanten nach rechts
-                // laufen und sich nicht ueber die Felder legen.
-                x: MASSE.feldBreite * 2 + MASSE.rand * 3,
-                y: MASSE.rand + index * (MASSE.feldHoehe + MASSE.luecke),
+                x: MASSE.rand + index * (MASSE.feldBreite + MASSE.luecke),
+                y: unterkante,
             },
             breite: MASSE.feldBreite,
             hoehe: MASSE.feldHoehe,

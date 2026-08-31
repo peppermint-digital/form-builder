@@ -20,7 +20,11 @@ import {
     type Knotenposition,
     type RoheDefinition,
 } from '../../core';
-import { knotenAusDefinition, positionenSchreiben } from './anordnung';
+import {
+    knotenAusDefinition,
+    positionenSchreiben,
+    unterkanteVon,
+} from './anordnung';
 import {
     kanteEntfernen,
     kantenAusDefinition,
@@ -111,7 +115,11 @@ export default function GraphEditor({
             },
         }));
 
-        for (const regel of regelKnoten(gelesen, zyklen)) {
+        for (const regel of regelKnoten(
+            gelesen,
+            zyklen,
+            unterkanteVon(strukturKnoten),
+        )) {
             aus.push({
                 id: regel.id,
                 type: 'regel',

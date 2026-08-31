@@ -12,7 +12,12 @@ export type {
     RahmenKnotenDaten,
     RegelKnotenDaten,
 } from './knoten';
-export { knotenAusDefinition, MASSE, positionenSchreiben } from './anordnung';
+export {
+    knotenAusDefinition,
+    MASSE,
+    positionenSchreiben,
+    unterkanteVon,
+} from './anordnung';
 export {
     ablaufAnlegen,
     kanteEntfernen,

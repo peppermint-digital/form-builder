@@ -43,122 +43,176 @@ export interface GraphKnoten {
 /**
  * Baut aus einer Definition die Knoten des Graphen.
  *
- * Gespeicherte Positionen gewinnen; wo keine steht, entsteht eine
- * nachvollziehbare Anordnung aus der Reihenfolge. Das ist die Bedingung
- * dafuer, dass `graph` reine Kosmetik bleibt: ein Formular, das nie im
- * Knoten-Editor war, muss sich darin trotzdem oeffnen lassen — und beim
- * zweiten Oeffnen genauso aussehen wie beim ersten.
+ * Gespeicherte Positionen gewinnen; wo keine steht, entsteht eine Anordnung
+ * aus der Reihenfolge. Das ist die Bedingung dafuer, dass `graph` reine
+ * Kosmetik bleibt: ein Formular, das nie im Knoten-Editor war — und das sind
+ * heute alle — muss sich darin oeffnen lassen, und beim zweiten Oeffnen
+ * genauso aussehen wie beim ersten.
+ *
+ * Die Anordnung folgt dem, was das Formular ohnehin schon aussagt:
+ *
+ * - **Zeilen** legen ihre Spalten NEBENEINANDER. Ein zweispaltiges
+ *   „Vorname | Nachname" steht im Graphen so, wie es im Formular steht.
+ * - **Rahmen** stapeln ihren Inhalt untereinander, unter der Ueberschrift.
+ * - **Auf oberster Ebene** entscheidet der Bestand: hat das Formular
+ *   Schritte, laufen sie von links nach rechts — in dieselbe Richtung wie die
+ *   Verzweigungspfeile. Hat es keine, wird gestapelt, wie ein Formular
+ *   gelesen wird.
+ *
+ * Bewusst ohne dagre oder elkjs. Eine Anordnung, die sich aus der Reihenfolge
+ * ergibt, ist vorhersagbar und braucht keine Abhaengigkeit; ein
+ * Graphen-Layouter waere erst dann faellig, wenn das nachweislich nicht mehr
+ * reicht.
  */
 export function knotenAusDefinition(
     definition: FormularDefinition,
 ): GraphKnoten[] {
     const gespeichert = definition.graph?.positions ?? {};
-
     const gebaut: GraphKnoten[] = [];
 
-    const gehen = (knoten: AufgeloesterKnoten[], eltern?: string): void => {
-        let laufendeHoehe = eltern ? MASSE.kopf : 0;
+    const aufgeloest = layoutAufloesen(definition);
 
-        for (const eintrag of knoten) {
+    // Waagerecht nur, wenn es ueberhaupt Schritte gibt. Ein Bestandsformular
+    // hat keine — und soll aussehen wie das Formular, das es ist.
+    const richtung: Richtung = aufgeloest.some((knoten) => knoten.type === 'step')
+        ? 'waagerecht'
+        : 'senkrecht';
+
+    const platzieren = (
+        liste: AufgeloesterKnoten[],
+        eltern: string | undefined,
+        fluss: Richtung,
+    ): Ausmass => {
+        let x = MASSE.rand;
+        let y = eltern ? MASSE.kopf : MASSE.rand;
+        let rechts = 0;
+        let unten = 0;
+
+        const merken = (knoten: GraphKnoten) => {
+            gebaut.push(knoten);
+            rechts = Math.max(rechts, knoten.position.x + knoten.breite);
+            unten = Math.max(unten, knoten.position.y + knoten.hoehe);
+        };
+
+        for (const eintrag of liste) {
+            // Abschnitte sind reine Ueberschriften im Formular. Ein eigener
+            // Knoten dafuer traegt im Graphen keine Aussage.
             if (eintrag.type === 'section') {
                 continue;
             }
 
             if (eintrag.type === 'row') {
-                for (const feld of eintrag.columns.flat()) {
-                    gebaut.push({
-                        id: knotenId('feld', feld.name),
-                        ref: feld.name,
-                        art: 'feld',
-                        ...(eltern ? { parentId: eltern } : {}),
-                        position: gespeichert[knotenId('feld', feld.name)] ?? {
-                            x: MASSE.rand,
-                            y: laufendeHoehe + MASSE.rand,
-                        },
-                        breite: MASSE.feldBreite,
-                        hoehe: MASSE.feldHoehe,
-                        titel: feld.label || feld.name,
-                        feldTyp: feld.type,
-                        pflicht: feld.required === true,
-                    });
+                let spaltenX = x;
+                let zeilenHoehe = 0;
 
-                    laufendeHoehe += MASSE.feldHoehe + MASSE.luecke;
+                for (const spalte of eintrag.columns) {
+                    let spaltenY = y;
+
+                    for (const feld of spalte) {
+                        merken({
+                            id: knotenId('feld', feld.name),
+                            ref: feld.name,
+                            art: 'feld',
+                            ...(eltern ? { parentId: eltern } : {}),
+                            position: gespeichert[knotenId('feld', feld.name)] ?? {
+                                x: spaltenX,
+                                y: spaltenY,
+                            },
+                            breite: MASSE.feldBreite,
+                            hoehe: MASSE.feldHoehe,
+                            titel: feld.label || feld.name,
+                            feldTyp: feld.type,
+                            pflicht: feld.required === true,
+                        });
+
+                        spaltenY += MASSE.feldHoehe + MASSE.luecke;
+                    }
+
+                    zeilenHoehe = Math.max(zeilenHoehe, spaltenY - y - MASSE.luecke);
+                    spaltenX += MASSE.feldBreite + MASSE.luecke;
+                }
+
+                if (fluss === 'waagerecht') {
+                    x = spaltenX;
+                } else {
+                    y += zeilenHoehe + MASSE.luecke;
                 }
 
                 continue;
             }
 
-            // Gruppe oder Schritt: erst die Kinder, dann die eigene Groesse —
-            // sie ergibt sich aus dem, was darin liegt.
-            const vorher = gebaut.length;
-
             const art: Knotenart = eintrag.type === 'group' ? 'gruppe' : 'schritt';
+            const eigeneId = knotenId(art, eintrag.id);
+            const stelle = gebaut.length;
 
-            gebaut.push({
-                id: knotenId(art, eintrag.id),
+            merken({
+                id: eigeneId,
                 ref: eintrag.id,
                 art,
                 ...(eltern ? { parentId: eltern } : {}),
-                position: gespeichert[knotenId(art, eintrag.id)] ?? {
-                    x: MASSE.rand,
-                    y: laufendeHoehe + MASSE.rand,
-                },
+                position: gespeichert[eigeneId] ?? { x, y },
                 breite: 0,
                 hoehe: 0,
-                titel:
-                    eintrag.title ||
-                    (eintrag.type === 'group' ? 'Gruppe' : 'Schritt'),
+                titel: eintrag.title || (art === 'gruppe' ? 'Gruppe' : 'Schritt'),
             });
 
-            gehen(eintrag.children, knotenId(art, eintrag.id));
+            // In einem Rahmen wird immer gestapelt: er ist ein Ausschnitt des
+            // Formulars, und ein Formular liest man von oben nach unten.
+            const innen = platzieren(eintrag.children, eigeneId, 'senkrecht');
 
-            const rahmen = gebaut[vorher]!;
-            const masse = rahmenMasse(gebaut.slice(vorher + 1), rahmen.id);
+            const rahmen = gebaut[stelle]!;
+            rahmen.breite = innen.breite;
+            rahmen.hoehe = innen.hoehe;
 
-            rahmen.breite = masse.breite;
-            rahmen.hoehe = masse.hoehe;
+            rechts = Math.max(rechts, rahmen.position.x + rahmen.breite);
+            unten = Math.max(unten, rahmen.position.y + rahmen.hoehe);
 
-            laufendeHoehe += masse.hoehe + MASSE.luecke;
+            if (fluss === 'waagerecht') {
+                x += rahmen.breite + MASSE.luecke;
+            } else {
+                y += rahmen.hoehe + MASSE.luecke;
+            }
         }
+
+        return {
+            breite: Math.max(rechts + MASSE.rand, MASSE.feldBreite + 2 * MASSE.rand),
+            hoehe: Math.max(
+                unten + MASSE.rand,
+                (eltern ? MASSE.kopf : 0) + MASSE.feldHoehe + 2 * MASSE.rand,
+            ),
+        };
     };
 
-    gehen(layoutAufloesen(definition));
+    platzieren(aufgeloest, undefined, richtung);
 
     return gebaut;
 }
 
-/**
- * Wie gross ein Rahmen sein muss, damit sein Inhalt hineinpasst.
- *
- * Gerechnet statt gestylt: React Flow haelt Kinder mit `extent: 'parent'`
- * innerhalb der Flaeche des Rahmens. Ist die zu klein, laesst sich ein Knoten
- * nicht mehr dorthin ziehen, wo er hingehoert — und es sieht aus, als haenge
- * der Editor.
- */
-function rahmenMasse(
-    kandidaten: GraphKnoten[],
-    eltern: string,
-): { breite: number; hoehe: number } {
-    const kinder = kandidaten.filter((knoten) => knoten.parentId === eltern);
+type Richtung = 'waagerecht' | 'senkrecht';
 
-    if (kinder.length === 0) {
-        return {
-            breite: MASSE.feldBreite + 2 * MASSE.rand,
-            hoehe: MASSE.kopf + MASSE.feldHoehe + 2 * MASSE.rand,
-        };
+interface Ausmass {
+    breite: number;
+    hoehe: number;
+}
+
+/**
+ * Die Unterkante der gesamten Struktur.
+ *
+ * Die Regel-Knoten liegen darunter, in einer eigenen Bahn. Sie an einer
+ * festen Stelle abzulegen ginge so lange gut, bis ein Formular mit Schritten
+ * daherkommt und die Bahn mitten durch die Knoten laeuft.
+ */
+export function unterkanteVon(knoten: GraphKnoten[]): number {
+    const oberste = knoten.filter((eintrag) => eintrag.parentId === undefined);
+
+    if (oberste.length === 0) {
+        return MASSE.rand;
     }
 
-    const rechts = Math.max(
-        ...kinder.map((knoten) => knoten.position.x + knoten.breite),
+    return (
+        Math.max(...oberste.map((eintrag) => eintrag.position.y + eintrag.hoehe)) +
+        MASSE.luecke * 2
     );
-    const unten = Math.max(
-        ...kinder.map((knoten) => knoten.position.y + knoten.hoehe),
-    );
-
-    return {
-        breite: rechts + MASSE.rand,
-        hoehe: unten + MASSE.rand,
-    };
 }
 
 /**
