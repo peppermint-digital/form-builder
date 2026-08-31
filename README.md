@@ -31,6 +31,27 @@ neu bauen, ohne dass eine einzige gespeicherte Antwort ihren Platz verliert.
 **`layout` ist optional.** Fehlt es, wird einspaltig in der Reihenfolge von
 `fields` gerendert. Bestandsformulare laufen dadurch ohne Migration weiter.
 
+## Der Knoten-Editor liegt in einem eigenen Einstiegspunkt
+
+```tsx
+import { GraphEditor } from '@peppermint-digital/form-builder/react/graph';
+import '@xyflow/react/dist/style.css';
+import '@peppermint-digital/form-builder/styles.css';
+
+<GraphEditor definition={event.form_config} onChange={setDefinition} />
+```
+
+`@xyflow/react` ist eine **optionale** peerDependency. Wer nur Formulare
+zeichnet, installiert sie nicht und laedt sie nicht — und ein Vue-Adapter
+kann sie ohnehin nicht gebrauchen. Deshalb liegt der Editor unter
+`/react/graph` und nicht im Kernbuendel.
+
+Der Graph ist eine **Ansicht** auf die Definition, kein zweites Format. Die
+Struktur kommt aus `layout`, die Bedingungen aus `conditions` — unter `graph`
+stehen nur Positionen. Ein Formular, das nie im Knoten-Editor war, laesst sich
+darin trotzdem oeffnen: die Anordnung entsteht dann aus der Reihenfolge, und
+zwar bei jedem Oeffnen gleich.
+
 ## Es bringt keine UI-Bibliothek mit
 
 ```tsx

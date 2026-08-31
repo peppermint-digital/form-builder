@@ -13,7 +13,12 @@
             "import": "./dist/react/index.mjs",
             "require": "./dist/react/index.js"
         },
-        "./styles.css": "./dist/styles.css"
+        "./styles.css": "./dist/styles.css",
+        "./react/graph": {
+            "types": "./dist/react/graph/index.d.ts",
+            "import": "./dist/react/graph/index.mjs",
+            "require": "./dist/react/graph/index.js"
+        }
     },
     "files": [
         "dist"
@@ -34,13 +39,17 @@
     },
     "peerDependencies": {
         "react": ">=18.0.0",
-        "react-dom": ">=18.0.0"
+        "react-dom": ">=18.0.0",
+        "@xyflow/react": ">=12.0.0"
     },
     "peerDependenciesMeta": {
         "react": {
             "optional": true
         },
         "react-dom": {
+            "optional": true
+        },
+        "@xyflow/react": {
             "optional": true
         }
     },
@@ -50,6 +59,7 @@
         "@types/node": "^22.20.1",
         "@types/react": "^19.0.0",
         "@types/react-dom": "^19.0.0",
+        "@xyflow/react": "^12.11.5",
         "jsdom": "^25.0.1",
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
