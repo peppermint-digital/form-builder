@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     feldInRahmen,
+    feldNebenFeld,
     rahmenAendern,
     rahmenEntfernen,
     rahmenHinzufuegen,
@@ -169,5 +170,88 @@ describe('Rahmen umbenennen', () => {
 
         expect(rahmenListe(danach)[0]!.titel).toBe('Hotel');
         expect(rahmenVonFeld(danach, 'a')).toBe('g1');
+    });
+});
+
+describe('Felder nebeneinander legen', () => {
+    const drei: FormularDefinition = {
+        fields: [feld('a'), feld('b'), feld('c'), feld('d')],
+        layout: [
+            { type: 'row', columns: [['a']] },
+            { type: 'row', columns: [['b']] },
+            { type: 'row', columns: [['c']] },
+            { type: 'row', columns: [['d']] },
+        ],
+    };
+
+    const zeilenVon = (definition: FormularDefinition) =>
+        layoutAufloesen(definition)
+            .filter((k) => k.type === 'row')
+            .map((k) => (k.type === 'row' ? k.columns.map((s) => s.map((f) => f.name)) : []));
+
+    it('stellt zwei Felder in eine Zeile', () => {
+        expect(zeilenVon(feldNebenFeld(drei, 'b', 'a'))).toEqual([
+            [['a'], ['b']],
+            [['c']],
+            [['d']],
+        ]);
+    });
+
+    it('funktioniert auch innerhalb einer Gruppe', () => {
+        // Über den Namen und nicht über den Zeilenindex: `feldVerschieben`
+        // rechnet mit `layout[ziel.zeile]` und träfe hier das Falsche.
+        const inGruppe: FormularDefinition = {
+            fields: [feld('a'), feld('b')],
+            layout: [
+                {
+                    type: 'group',
+                    id: 'g1',
+                    children: [
+                        { type: 'row', columns: [['a']] },
+                        { type: 'row', columns: [['b']] },
+                    ],
+                },
+            ],
+        };
+
+        const danach = feldNebenFeld(inGruppe, 'b', 'a');
+        const gruppe = layoutAufloesen(danach)[0]!;
+
+        expect(gruppe.type).toBe('group');
+        expect(gruppe.type === 'group' && gruppe.children).toHaveLength(1);
+    });
+
+    it('nimmt nicht mehr als drei Spalten an', () => {
+        // Mehr ist auf keinem Bildschirm lesbar. Stillschweigend eine vierte
+        // anzulegen wäre eine Regel, die nur hier gilt.
+        let stand = feldNebenFeld(drei, 'b', 'a');
+        stand = feldNebenFeld(stand, 'c', 'a');
+        const voll = feldNebenFeld(stand, 'd', 'a');
+
+        expect(zeilenVon(voll)[0]).toHaveLength(3);
+        // `d` bleibt, wo es war — ein Feld, das beim Verschieben verschwindet,
+        // wäre schlimmer als eines, das sich nicht verschieben lässt.
+        expect(felderInReihenfolge(voll).map((f) => f.name)).toContain('d');
+    });
+
+    it('lässt ein Feld nicht neben sich selbst legen', () => {
+        expect(feldNebenFeld(drei, 'a', 'a')).toEqual(drei);
+    });
+
+    it('behält Bedingungen', () => {
+        const voll: FormularDefinition = {
+            ...drei,
+            conditions: [
+                {
+                    id: 'r1',
+                    target: { kind: 'field', ref: 'b' },
+                    effect: 'show',
+                    match: 'all',
+                    tests: [{ field: 'a', op: 'filled' }],
+                },
+            ],
+        };
+
+        expect(feldNebenFeld(voll, 'b', 'a').conditions).toEqual(voll.conditions);
     });
 });

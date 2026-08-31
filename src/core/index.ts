@@ -5,6 +5,7 @@ export {
     feldEntfernen,
     feldHinzufuegen,
     feldInRahmen,
+    feldNebenFeld,
     feldVerschieben,
     knotenEntfernen,
     layoutSicherstellen,

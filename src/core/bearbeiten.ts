@@ -529,3 +529,64 @@ export function rahmenListe(
 
     return aus;
 }
+
+/**
+ * Legt ein Feld NEBEN ein anderes — beide stehen danach in einer Zeile.
+ *
+ * Ueber den Namen des Zielfelds und nicht ueber einen Zeilenindex:
+ * `feldVerschieben` rechnet mit `layout[ziel.zeile]` und trifft damit das
+ * Falsche, sobald Zeilen in Gruppen oder Schritten liegen. Diese Funktion
+ * sucht rekursiv und ist von der Ebene unabhaengig.
+ *
+ * Ist die Zielzeile voll (`MAX_SPALTEN`), passiert nichts: mehr als drei
+ * Felder nebeneinander sind auf keinem Bildschirm lesbar, und stillschweigend
+ * eine vierte Spalte anzulegen waere eine Regel, die nur hier gilt.
+ */
+export function feldNebenFeld(
+    definition: FormularDefinition,
+    name: string,
+    zielName: string,
+): FormularDefinition {
+    const gesichert = layoutSicherstellen(definition);
+
+    if (name === zielName) {
+        return definition;
+    }
+
+    if (!gesichert.fields.some((feld) => feld.name === name)) {
+        return definition;
+    }
+
+    const bereinigt = ausLayoutEntfernen(gesichert.layout, name);
+    let gesetzt = false;
+
+    const gehen = (knoten: LayoutKnoten[]): LayoutKnoten[] =>
+        knoten.map((eintrag) => {
+            if (istRahmen(eintrag)) {
+                return { ...eintrag, children: gehen(eintrag.children) };
+            }
+
+            if (
+                gesetzt ||
+                !istZeile(eintrag) ||
+                !eintrag.columns.flat().includes(zielName)
+            ) {
+                return eintrag;
+            }
+
+            if (eintrag.columns.length >= MAX_SPALTEN) {
+                return eintrag;
+            }
+
+            gesetzt = true;
+
+            return { type: 'row' as const, columns: [...eintrag.columns, [name]] };
+        });
+
+    const layout = gehen(bereinigt);
+
+    // Nicht untergebracht — dann bleibt alles, wie es war. Ein Feld, das beim
+    // Verschieben verschwindet, waere schlimmer als eines, das sich nicht
+    // verschieben laesst.
+    return gesetzt ? { ...gesichert, layout } : definition;
+}

@@ -19,6 +19,7 @@ import {
     feldEntfernen,
     feldHinzufuegen,
     feldInRahmen,
+    feldNebenFeld,
     naechsterFeldname,
     rahmenAendern,
     rahmenEntfernen,
@@ -293,19 +294,45 @@ export default function GraphEditor({
                 y: absolutY(bewegt, knoten) + (bewegt.height ?? 0) / 2,
             };
 
+            const enthaelt = (kandidat: Node) => {
+                const x = absolutX(kandidat, knoten);
+                const y = absolutY(kandidat, knoten);
+
+                return (
+                    mitte.x >= x &&
+                    mitte.x <= x + (kandidat.width ?? 0) &&
+                    mitte.y >= y &&
+                    mitte.y <= y + (kandidat.height ?? 0)
+                );
+            };
+
+            // Auf einem anderen FELD abgelegt heisst „nebeneinander" — dieselbe
+            // Vokabel wie im Listen-Editor. Das wird zuerst geprueft: ein Feld
+            // liegt immer auch ueber dem Rahmen, in dem es steckt, und der
+            // Rahmen wuerde sonst gewinnen.
+            const nachbar = knoten.find(
+                (eintrag) =>
+                    eintrag.type === 'feld' && eintrag.id !== bewegt.id && enthaelt(eintrag),
+            );
+
+            if (nachbar) {
+                const nachbarBezug = knotenRef(nachbar.id);
+
+                if (nachbarBezug) {
+                    onChange(
+                        anordnungVergessen(
+                            feldNebenFeld(gelesen, bezug.ref, nachbarBezug.ref),
+                            bewegt.id,
+                        ),
+                    );
+                }
+
+                return;
+            }
+
             const treffer = knoten
                 .filter((eintrag) => eintrag.type === 'gruppe' || eintrag.type === 'schritt')
-                .filter((rahmenKnoten) => {
-                    const x = absolutX(rahmenKnoten, knoten);
-                    const y = absolutY(rahmenKnoten, knoten);
-
-                    return (
-                        mitte.x >= x &&
-                        mitte.x <= x + (rahmenKnoten.width ?? 0) &&
-                        mitte.y >= y &&
-                        mitte.y <= y + (rahmenKnoten.height ?? 0)
-                    );
-                })
+                .filter(enthaelt)
                 .sort(
                     (a, b) =>
                         (a.width ?? 0) * (a.height ?? 0) - (b.width ?? 0) * (b.height ?? 0),
