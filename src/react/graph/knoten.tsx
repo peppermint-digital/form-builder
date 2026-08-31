@@ -1,4 +1,4 @@
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Handle, NodeResizer, Position, type NodeProps } from '@xyflow/react';
 
 /**
  * Die drei Knotenarten des Graphen.
@@ -58,17 +58,40 @@ export function FeldKnoten({ data, selected }: NodeProps) {
 
 export interface RahmenKnotenDaten extends Record<string, unknown> {
     titel: string;
+    /**
+     * Wie klein der Rahmen hoechstens werden darf.
+     *
+     * Das umschliessende Rechteck seines Inhalts. Ohne die Grenze zieht man
+     * ihn kleiner als seine eigenen Felder, und die liegen dann sichtbar
+     * daneben.
+     */
+    mindestBreite: number;
+    mindestHoehe: number;
 }
 
-export function GruppeKnoten({ data, selected }: NodeProps) {
+function Rahmen({
+    data,
+    selected,
+    art,
+}: NodeProps & { art: 'gruppe' | 'schritt' }) {
     const daten = data as RahmenKnotenDaten;
 
     return (
         <div
-            className={`pm-fb-rahmen pm-fb-rahmen--gruppe${
+            className={`pm-fb-rahmen pm-fb-rahmen--${art}${
                 selected ? ' pm-fb-rahmen--gewaehlt' : ''
             }`}
         >
+            {/*
+                Die Griffe erscheinen erst bei Auswahl: dauerhaft sichtbar
+                liegen sie ueber den Feldern am Rand und fangen deren Klicks
+                ab.
+            */}
+            <NodeResizer
+                isVisible={selected}
+                minWidth={daten.mindestBreite}
+                minHeight={daten.mindestHoehe}
+            />
             <Handle type="target" position={Position.Left} />
             <div className="pm-fb-rahmen__titel">{daten.titel}</div>
             <Handle type="source" position={Position.Right} />
@@ -76,20 +99,12 @@ export function GruppeKnoten({ data, selected }: NodeProps) {
     );
 }
 
-export function SchrittKnoten({ data, selected }: NodeProps) {
-    const daten = data as RahmenKnotenDaten;
+export function GruppeKnoten(props: NodeProps) {
+    return <Rahmen {...props} art="gruppe" />;
+}
 
-    return (
-        <div
-            className={`pm-fb-rahmen pm-fb-rahmen--schritt${
-                selected ? ' pm-fb-rahmen--gewaehlt' : ''
-            }`}
-        >
-            <Handle type="target" position={Position.Left} />
-            <div className="pm-fb-rahmen__titel">{daten.titel}</div>
-            <Handle type="source" position={Position.Right} />
-        </div>
-    );
+export function SchrittKnoten(props: NodeProps) {
+    return <Rahmen {...props} art="schritt" />;
 }
 
 export interface RegelKnotenDaten extends Record<string, unknown> {

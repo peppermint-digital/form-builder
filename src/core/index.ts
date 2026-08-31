@@ -48,6 +48,7 @@ export type {
     FormularDefinition,
     FormularFeld,
     GraphDarstellung,
+    Knotengroesse,
     Knotenposition,
     LayoutAbschnitt,
     LayoutGruppe,

@@ -33,6 +33,8 @@ import {
 } from '../../core';
 import Feldmaske, { type FeldTypAuswahl } from '../editor/feldmaske';
 import {
+    anordnungVergessen,
+    groesseSchreiben,
     knotenAusDefinition,
     positionenSchreiben,
     unterkanteVon,
@@ -117,9 +119,10 @@ export default function GraphEditor({
             id: knoten.id,
             type: knoten.art,
             position: knoten.position,
-            ...(knoten.parentId
-                ? { parentId: knoten.parentId, extent: 'parent' as const }
-                : {}),
+            // Bewusst OHNE `extent: 'parent'`: damit liesse sich ein Feld
+            // nicht mehr aus seinem Rahmen ziehen, und genau das ist die
+            // Geste, mit der man es woanders hinlegt.
+            ...(knoten.parentId ? { parentId: knoten.parentId } : {}),
             // Rahmen liegen unter ihren Kindern, sonst faengt die Flaeche des
             // Rahmens jeden Klick ab, der einem Feld darin gilt.
             ...(knoten.art === 'feld' ? {} : { style: { zIndex: -1 } }),
@@ -129,6 +132,8 @@ export default function GraphEditor({
                 titel: knoten.titel,
                 feldTyp: knoten.feldTyp ?? '',
                 pflicht: knoten.pflicht ?? false,
+                mindestBreite: knoten.mindestBreite ?? 0,
+                mindestHoehe: knoten.mindestHoehe ?? 0,
                 ...(gesperrteFelder[knoten.ref]
                     ? { gesperrt: gesperrteFelder[knoten.ref] }
                     : {}),
@@ -245,8 +250,82 @@ export default function GraphEditor({
                     return stand;
                 });
             }
+
+            // Der Resizer meldet waehrend des Ziehens laufend; gesichert wird
+            // erst, wenn er losgelassen ist.
+            for (const aenderung of aenderungen) {
+                if (
+                    aenderung.type === 'dimensions' &&
+                    aenderung.resizing === false &&
+                    aenderung.dimensions
+                ) {
+                    onChange(
+                        groesseSchreiben(gelesen, aenderung.id, {
+                            breite: aenderung.dimensions.width,
+                            hoehe: aenderung.dimensions.height,
+                        }),
+                    );
+                }
+            }
         },
-        [onKnotenChange, positionenSichern, setKnoten],
+        [gelesen, onChange, onKnotenChange, positionenSichern, setKnoten],
+    );
+
+    /**
+     * Ein losgelassener Knoten landet in dem Rahmen, ueber dem er liegt.
+     *
+     * Der INNERSTE gewinnt: bei einer Gruppe in einem Schritt ist die Gruppe
+     * gemeint, sonst waere jede Gruppe unerreichbar, sobald sie in einem
+     * Schritt liegt. Ausserhalb aller Rahmen abgelegt heisst „gehoert
+     * niemandem" — das Feld geht dabei nie verloren, es rueckt nur nach
+     * aussen.
+     */
+    const abgelegt = useCallback(
+        (_: unknown, bewegt: Node) => {
+            const bezug = knotenRef(bewegt.id);
+
+            if (bezug?.art !== 'feld') {
+                return;
+            }
+
+            const mitte = {
+                x: absolutX(bewegt, knoten) + (bewegt.width ?? 0) / 2,
+                y: absolutY(bewegt, knoten) + (bewegt.height ?? 0) / 2,
+            };
+
+            const treffer = knoten
+                .filter((eintrag) => eintrag.type === 'gruppe' || eintrag.type === 'schritt')
+                .filter((rahmenKnoten) => {
+                    const x = absolutX(rahmenKnoten, knoten);
+                    const y = absolutY(rahmenKnoten, knoten);
+
+                    return (
+                        mitte.x >= x &&
+                        mitte.x <= x + (rahmenKnoten.width ?? 0) &&
+                        mitte.y >= y &&
+                        mitte.y <= y + (rahmenKnoten.height ?? 0)
+                    );
+                })
+                .sort(
+                    (a, b) =>
+                        (a.width ?? 0) * (a.height ?? 0) - (b.width ?? 0) * (b.height ?? 0),
+                );
+
+            const ziel = treffer[0] ? knotenRef(treffer[0].id)?.ref ?? null : null;
+
+            if (rahmenVonFeld(gelesen, bezug.ref) === ziel) {
+                return;
+            }
+
+            // Die gespeicherte Position war relativ zum ALTEN Rahmen und
+            // zeigt im neuen irgendwohin. Ohne das Vergessen landet ein
+            // hineingezogenes Feld neben der Gruppe, in die es gerade
+            // gelegt wurde.
+            onChange(
+                anordnungVergessen(feldInRahmen(gelesen, bezug.ref, ziel), bewegt.id),
+            );
+        },
+        [gelesen, knoten, onChange],
     );
 
     const verbinden = useCallback(
@@ -387,6 +466,7 @@ export default function GraphEditor({
                     nodes={knoten}
                     edges={kanten}
                     onNodesChange={knotenGeaendert}
+                    onNodeDragStop={abgelegt}
                     onEdgesChange={onKantenChange}
                     onEdgesDelete={kantenEntfernt}
                     onConnect={verbinden}
@@ -643,4 +723,27 @@ function BedingungAnlegen({
             </button>
         </div>
     );
+}
+
+/**
+ * Die absolute Position eines Knotens.
+ *
+ * React Flow speichert die Position von Kindern RELATIV zum Rahmen. Wer
+ * Flaechen vergleichen will, muss die Elternpositionen aufaddieren — sonst
+ * liegt ein Feld in einer Gruppe rechnerisch immer oben links im Bild.
+ */
+function absolutX(knoten: Node, alle: Node[]): number {
+    const eltern = knoten.parentId
+        ? alle.find((eintrag) => eintrag.id === knoten.parentId)
+        : undefined;
+
+    return knoten.position.x + (eltern ? absolutX(eltern, alle) : 0);
+}
+
+function absolutY(knoten: Node, alle: Node[]): number {
+    const eltern = knoten.parentId
+        ? alle.find((eintrag) => eintrag.id === knoten.parentId)
+        : undefined;
+
+    return knoten.position.y + (eltern ? absolutY(eltern, alle) : 0);
 }

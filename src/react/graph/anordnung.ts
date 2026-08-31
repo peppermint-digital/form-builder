@@ -2,6 +2,7 @@ import {
     layoutAufloesen,
     type AufgeloesterKnoten,
     type FormularDefinition,
+    type Knotengroesse,
     type Knotenposition,
 } from '../../core';
 import { knotenId, type Knotenart } from './kennung';
@@ -34,6 +35,14 @@ export interface GraphKnoten {
     breite: number;
     hoehe: number;
     titel: string;
+    /**
+     * Wie gross der Inhalt MINDESTENS braucht.
+     *
+     * Nur bei Rahmen. Kleiner darf niemand ziehen: sonst laegen die Felder
+     * sichtbar neben ihrem eigenen Rahmen.
+     */
+    mindestBreite?: number;
+    mindestHoehe?: number;
     /** Nur bei `feld`: der Feldtyp, fuer die Beschriftung im Knoten. */
     feldTyp?: string;
     /** Nur bei `feld`: ob das Feld laut Definition Pflicht ist. */
@@ -68,6 +77,7 @@ export function knotenAusDefinition(
     definition: FormularDefinition,
 ): GraphKnoten[] {
     const gespeichert = definition.graph?.positions ?? {};
+    const groessen = definition.graph?.sizes ?? {};
     const gebaut: GraphKnoten[] = [];
 
     // Mit leeren Rahmen: der Editor muss zeigen, was jemand gerade angelegt
@@ -163,8 +173,13 @@ export function knotenAusDefinition(
             const innen = platzieren(eintrag.children, eigeneId, 'senkrecht');
 
             const rahmen = gebaut[stelle]!;
-            rahmen.breite = innen.breite;
-            rahmen.hoehe = innen.hoehe;
+
+            // Der gerechnete Inhalt ist die Mindestgroesse; eine von Hand
+            // gesetzte gewinnt darueber.
+            rahmen.mindestBreite = innen.breite;
+            rahmen.mindestHoehe = innen.hoehe;
+            rahmen.breite = Math.max(groessen[eigeneId]?.breite ?? 0, innen.breite);
+            rahmen.hoehe = Math.max(groessen[eigeneId]?.hoehe ?? 0, innen.hoehe);
 
             rechts = Math.max(rechts, rahmen.position.x + rahmen.breite);
             unten = Math.max(unten, rahmen.position.y + rahmen.hoehe);
@@ -237,4 +252,58 @@ export function positionenSchreiben(
     }
 
     return { ...definition, graph: { ...definition.graph, positions: positionen } };
+}
+
+/** Eine von Hand gezogene Rahmengroesse festhalten. */
+export function groesseSchreiben(
+    definition: FormularDefinition,
+    id: string,
+    groesse: Knotengroesse,
+): FormularDefinition {
+    return {
+        ...definition,
+        graph: {
+            ...definition.graph,
+            sizes: {
+                ...(definition.graph?.sizes ?? {}),
+                [id]: {
+                    breite: Math.round(groesse.breite),
+                    hoehe: Math.round(groesse.hoehe),
+                },
+            },
+        },
+    };
+}
+
+/**
+ * Vergisst Position und Groesse eines Knotens.
+ *
+ * Noetig, sobald ein Feld den Rahmen wechselt: seine gespeicherte Position
+ * war RELATIV zum alten Rahmen und zeigt im neuen irgendwohin. Ohne das
+ * Vergessen landet ein hineingezogenes Feld sichtbar neben der Gruppe, in die
+ * es gerade gelegt wurde.
+ */
+export function anordnungVergessen(
+    definition: FormularDefinition,
+    id: string,
+): FormularDefinition {
+    const positionen = { ...(definition.graph?.positions ?? {}) };
+    const groessen = { ...(definition.graph?.sizes ?? {}) };
+
+    delete positionen[id];
+    delete groessen[id];
+
+    if (Object.keys(positionen).length === 0 && Object.keys(groessen).length === 0) {
+        const { graph: _weg, ...ohne } = definition;
+
+        return ohne;
+    }
+
+    return {
+        ...definition,
+        graph: {
+            ...(Object.keys(positionen).length > 0 ? { positions: positionen } : {}),
+            ...(Object.keys(groessen).length > 0 ? { sizes: groessen } : {}),
+        },
+    };
 }

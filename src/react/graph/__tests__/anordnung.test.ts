@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import type { FormularDefinition, FormularFeld } from '../../../core';
-import { knotenAusDefinition, MASSE, positionenSchreiben } from '../anordnung';
+import {
+    anordnungVergessen,
+    groesseSchreiben,
+    knotenAusDefinition,
+    MASSE,
+    positionenSchreiben,
+} from '../anordnung';
 import { knotenId } from '../kennung';
 
 const feld = (name: string, rest: Partial<FormularFeld> = {}): FormularFeld => ({
@@ -176,5 +182,76 @@ describe('positionenSchreiben', () => {
         // Der Graph ist Kosmetik — er darf an der Definition nichts sonst
         // anfassen.
         expect(danach.conditions).toEqual(definition.conditions);
+    });
+});
+
+describe('Rahmengröße', () => {
+    const mitGruppe: FormularDefinition = {
+        fields: [feld('a')],
+        layout: [
+            { type: 'group', id: 'g1', children: [{ type: 'row', columns: [['a']] }] },
+        ],
+    };
+
+    it('meldet die Mindestgröße aus dem Inhalt', () => {
+        const rahmen = knotenAusDefinition(mitGruppe).find((k) => k.id === 'gruppe:g1')!;
+
+        // Kleiner darf niemand ziehen: sonst lägen die Felder sichtbar neben
+        // ihrem eigenen Rahmen.
+        expect(rahmen.mindestBreite).toBe(rahmen.breite);
+        expect(rahmen.mindestHoehe).toBe(rahmen.hoehe);
+    });
+
+    it('lässt eine von Hand gesetzte Größe gewinnen', () => {
+        const groesser = groesseSchreiben(mitGruppe, 'gruppe:g1', {
+            breite: 900,
+            hoehe: 700,
+        });
+
+        const rahmen = knotenAusDefinition(groesser).find((k) => k.id === 'gruppe:g1')!;
+
+        expect(rahmen.breite).toBe(900);
+        expect(rahmen.hoehe).toBe(700);
+    });
+
+    it('lässt sich nicht unter den Inhalt drücken', () => {
+        // Auch wenn jemand eine zu kleine Größe in die Definition schreibt.
+        const zuKlein = groesseSchreiben(mitGruppe, 'gruppe:g1', {
+            breite: 10,
+            hoehe: 10,
+        });
+
+        const rahmen = knotenAusDefinition(zuKlein).find((k) => k.id === 'gruppe:g1')!;
+
+        expect(rahmen.breite).toBeGreaterThan(10);
+        expect(rahmen.hoehe).toBeGreaterThan(10);
+    });
+});
+
+describe('anordnungVergessen', () => {
+    it('nimmt Position und Größe eines Knotens heraus', () => {
+        // Nötig beim Rahmenwechsel: die gespeicherte Position war relativ zum
+        // alten Rahmen und zeigt im neuen irgendwohin.
+        const definition: FormularDefinition = {
+            fields: [feld('a'), feld('b')],
+            graph: {
+                positions: { 'feld:a': { x: 1, y: 2 }, 'feld:b': { x: 3, y: 4 } },
+                sizes: { 'gruppe:g1': { breite: 100, hoehe: 100 } },
+            },
+        };
+
+        const danach = anordnungVergessen(definition, 'feld:a');
+
+        expect(danach.graph?.positions).toEqual({ 'feld:b': { x: 3, y: 4 } });
+        expect(danach.graph?.sizes).toEqual({ 'gruppe:g1': { breite: 100, hoehe: 100 } });
+    });
+
+    it('wirft graph ganz weg, wenn nichts übrig bleibt', () => {
+        const definition: FormularDefinition = {
+            fields: [feld('a')],
+            graph: { positions: { 'feld:a': { x: 1, y: 2 } } },
+        };
+
+        expect(anordnungVergessen(definition, 'feld:a')).not.toHaveProperty('graph');
     });
 });

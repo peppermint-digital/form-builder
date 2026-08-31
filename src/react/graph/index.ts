@@ -13,6 +13,8 @@ export type {
     RegelKnotenDaten,
 } from './knoten';
 export {
+    anordnungVergessen,
+    groesseSchreiben,
     knotenAusDefinition,
     MASSE,
     positionenSchreiben,

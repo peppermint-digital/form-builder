@@ -212,9 +212,23 @@ export interface Knotenposition {
  * ein zweites Format neben `layout` — und ein Formular, das nur ueber den
  * Knoten-Editor entstehen kann.
  */
+export interface Knotengroesse {
+    breite: number;
+    hoehe: number;
+}
+
 export interface GraphDarstellung {
     /** Kennung → Position. Feldnamen, Gruppen-, Schritt- und Regel-Kennungen. */
     positions?: Record<string, Knotenposition>;
+
+    /**
+     * Kennung → von Hand gesetzte Groesse. Nur fuer Rahmen.
+     *
+     * Dieselbe Rolle wie `positions`: was hier steht, gewinnt; was fehlt,
+     * wird aus dem Inhalt gerechnet. Ein Rahmen, den jemand groesser gezogen
+     * hat, soll nicht beim naechsten Feld wieder zusammenschnurren.
+     */
+    sizes?: Record<string, Knotengroesse>;
 }
 
 /**
