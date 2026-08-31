@@ -18,6 +18,12 @@ class FormularDefinition
     public function __construct(
         public readonly array $felder = [],
         public readonly array $layout = [],
+        /** @var array<int, Bedingungsregel> */
+        public readonly array $bedingungen = [],
+        /** @var array<int, array<string, mixed>> */
+        public readonly array $flow = [],
+        /** @var array<string, mixed> */
+        public readonly array $graph = [],
     ) {}
 
     public static function fromArray(mixed $roh): self
@@ -47,9 +53,26 @@ class FormularDefinition
             }
         }
 
+        $bedingungen = [];
+
+        foreach (is_array($roh['conditions'] ?? null) ? $roh['conditions'] : [] as $roheRegel) {
+            if (! is_array($roheRegel)) {
+                continue;
+            }
+
+            $regel = Bedingungsregel::fromArray($roheRegel);
+
+            if ($regel instanceof Bedingungsregel) {
+                $bedingungen[] = $regel;
+            }
+        }
+
         return new self(
             felder: $felder,
             layout: is_array($layout) ? $layout : [],
+            bedingungen: $bedingungen,
+            flow: is_array($roh['flow'] ?? null) ? $roh['flow'] : [],
+            graph: is_array($roh['graph'] ?? null) ? $roh['graph'] : [],
         );
     }
 
@@ -93,6 +116,25 @@ class FormularDefinition
 
         if ($this->layout !== []) {
             $definition['layout'] = $this->layout;
+        }
+
+        // Durchreichen und nicht weglassen: sonst verliert jeder Weg, der
+        // ueber diese Darstellung zurueckschreibt, die Bedingungen — und ein
+        // Formular ohne Bedingungen sieht aus wie eines, bei dem nie welche
+        // eingestellt waren.
+        if ($this->bedingungen !== []) {
+            $definition['conditions'] = array_map(
+                fn (Bedingungsregel $regel): array => $regel->toArray(),
+                $this->bedingungen,
+            );
+        }
+
+        if ($this->flow !== []) {
+            $definition['flow'] = $this->flow;
+        }
+
+        if ($this->graph !== []) {
+            $definition['graph'] = $this->graph;
         }
 
         return $definition;

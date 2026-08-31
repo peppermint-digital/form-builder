@@ -21,19 +21,48 @@ use Peppermint\FormBuilder\Data\FormularFeld;
 class AntwortRegeln
 {
     /**
+     * @param  array<string, mixed>|null  $antworten  Der eingehende Antwortstand.
+     *                                                Ohne ihn bleiben die
+     *                                                Bedingungen unbeachtet.
      * @return array<string, array<int, string>>
      */
     public static function fuer(
         FormularDefinition $definition,
         string $prefix = '',
         ?RegelEinstellungen $einstellungen = null,
+        ?array $antworten = null,
     ): array {
         $einstellungen ??= new RegelEinstellungen;
+
+        // Ohne Antworten laesst sich keine Bedingung auswerten — dann gilt,
+        // was am Feld steht. Das ist der Zustand jeder Anwendung, die den
+        // Baukasten benutzt, aber noch keine Bedingungen anlegt: fuer sie
+        // aendert sich durch diesen Parameter nichts.
+        $sichtbarkeit = $antworten === null
+            ? null
+            : Sichtbarkeit::fuer($definition, $antworten);
+
         $regeln = [];
 
         foreach ($definition->felder as $feld) {
             $schluessel = $prefix === '' ? $feld->name : $prefix.'.'.$feld->name;
-            $regeln[$schluessel] = self::fuerFeld($feld, $einstellungen);
+
+            // `exclude` und nicht `nullable`: der Wert eines verborgenen
+            // Feldes muss WEG sein, nicht bloss ungeprueft. Sonst schreibt
+            // eine Anfrage an der Oberflaeche vorbei Werte in die Antworten,
+            // die im Formular nie standen — und niemand sieht ihnen an, dass
+            // sie dort nicht hingehoeren.
+            if ($sichtbarkeit !== null && ! $sichtbarkeit->feldSichtbar($feld->name)) {
+                $regeln[$schluessel] = ['exclude'];
+
+                continue;
+            }
+
+            $regeln[$schluessel] = self::fuerFeld(
+                $feld,
+                $einstellungen,
+                $sichtbarkeit?->feldPflicht($feld->name) ?? $feld->required,
+            );
         }
 
         return $regeln;
@@ -42,9 +71,12 @@ class AntwortRegeln
     /**
      * @return array<int, string>
      */
-    private static function fuerFeld(FormularFeld $feld, RegelEinstellungen $einstellungen): array
-    {
-        $regeln = [$feld->required ? 'required' : 'nullable'];
+    private static function fuerFeld(
+        FormularFeld $feld,
+        RegelEinstellungen $einstellungen,
+        bool $pflicht,
+    ): array {
+        $regeln = [$pflicht ? 'required' : 'nullable'];
 
         switch ($feld->type) {
             case 'email':
@@ -69,7 +101,7 @@ class AntwortRegeln
                 // Texten. Ein `boolean` wuerde '0' zwar annehmen, aber ein
                 // Pflicht-Ankreuzfeld mit `required` liesse '0' durchgehen —
                 // deshalb `accepted`, wenn es Pflicht ist.
-                if ($feld->required) {
+                if ($pflicht) {
                     return $einstellungen->zustimmungErzwingen
                         ? ['accepted']
                         : ['required', 'in:0,1'];

@@ -182,3 +182,112 @@ it('baut die Einstellungen aus der Konfiguration der Anwendung', function () {
         ->and($einstellungen->typpruefung)->toBeFalse()
         ->and($einstellungen->zustimmungErzwingen)->toBeFalse();
 });
+
+/*
+|-------------------------------------------------------------------------------
+| Bedingungen
+|-------------------------------------------------------------------------------
+*/
+
+/**
+ * @param  array<int, array<string, mixed>>  $felder
+ * @param  array<int, array<string, mixed>>  $bedingungen
+ */
+function defMitBedingungen(array $felder, array $bedingungen): FormularDefinition
+{
+    return FormularDefinition::fromArray([
+        'fields' => $felder,
+        'conditions' => $bedingungen,
+    ]);
+}
+
+function zeigeWenn(string $ziel, string $feld, string $wert, string $wirkung = 'show'): array
+{
+    return [
+        'id' => 'r-'.$ziel,
+        'target' => ['kind' => 'field', 'ref' => $ziel],
+        'effect' => $wirkung,
+        'match' => 'all',
+        'tests' => [['field' => $feld, 'op' => 'is', 'value' => $wert]],
+    ];
+}
+
+it('laesst die Bedingungen unbeachtet, wenn keine Antworten hereingereicht werden', function () {
+    $definition = defMitBedingungen(
+        [
+            ['name' => 'anreise', 'label' => 'Anreise', 'type' => 'text'],
+            ['name' => 'hotel', 'label' => 'Hotel', 'type' => 'text'],
+        ],
+        [zeigeWenn('hotel', 'anreise', 'ja')],
+    );
+
+    // Der Zustand jeder Anwendung, die den Baukasten benutzt, aber noch keine
+    // Antworten durchreicht: fuer sie darf sich durch den neuen Parameter
+    // nichts aendern.
+    expect(AntwortRegeln::fuer($definition))->toHaveKey('hotel')
+        ->and(AntwortRegeln::fuer($definition)['hotel'])->not->toBe(['exclude']);
+});
+
+it('wirft den Wert eines verborgenen Feldes weg, statt ihn nur nicht zu verlangen', function () {
+    $definition = defMitBedingungen(
+        [
+            ['name' => 'anreise', 'label' => 'Anreise', 'type' => 'text'],
+            ['name' => 'hotel', 'label' => 'Hotel', 'type' => 'text'],
+        ],
+        [zeigeWenn('hotel', 'anreise', 'ja')],
+    );
+
+    $regeln = AntwortRegeln::fuer($definition, '', null, [
+        'anreise' => 'nein',
+        // An der Oberflaeche vorbei mitgeschickt. Mit `nullable` landete das
+        // in den Antworten, ohne dass ihm jemand ansieht, dass es dort nicht
+        // hingehoert.
+        'hotel' => 'Heimlich eingeschmuggelt',
+    ]);
+
+    expect($regeln['hotel'])->toBe(['exclude']);
+});
+
+it('macht ein verborgenes Pflichtfeld nicht zur Pflicht', function () {
+    $definition = defMitBedingungen(
+        [
+            ['name' => 'anreise', 'label' => 'Anreise', 'type' => 'text'],
+            ['name' => 'hotelname', 'label' => 'Hotel', 'type' => 'text', 'required' => true],
+        ],
+        [zeigeWenn('hotelname', 'anreise', 'ja')],
+    );
+
+    // Bliebe es `required`, liesse sich das Formular nicht abschicken — und
+    // nichts auf der Seite zeigt, woran es liegt.
+    expect(AntwortRegeln::fuer($definition, '', null, ['anreise' => 'nein'])['hotelname'])
+        ->toBe(['exclude']);
+});
+
+it('verlangt ein bedingtes Pflichtfeld, sobald die Bedingung zutrifft', function () {
+    $definition = defMitBedingungen(
+        [
+            ['name' => 'rechnung', 'label' => 'Rechnung an', 'type' => 'text'],
+            ['name' => 'ust_id', 'label' => 'USt-IdNr.', 'type' => 'text'],
+        ],
+        [zeigeWenn('ust_id', 'rechnung', 'firma', 'require')],
+    );
+
+    expect(AntwortRegeln::fuer($definition, '', null, ['rechnung' => 'firma'])['ust_id'])
+        ->toContain('required')
+        ->and(AntwortRegeln::fuer($definition, '', null, ['rechnung' => 'privat'])['ust_id'])
+        ->toContain('nullable');
+});
+
+it('setzt exclude auch unter einem Prefix', function () {
+    $definition = defMitBedingungen(
+        [
+            ['name' => 'anreise', 'label' => 'Anreise', 'type' => 'text'],
+            ['name' => 'hotel', 'label' => 'Hotel', 'type' => 'text'],
+        ],
+        [zeigeWenn('hotel', 'anreise', 'ja')],
+    );
+
+    $regeln = AntwortRegeln::fuer($definition, 'form_data', null, ['anreise' => 'nein']);
+
+    expect($regeln['form_data.hotel'])->toBe(['exclude']);
+});

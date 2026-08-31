@@ -88,6 +88,14 @@ export function sichtbarkeit(
             new Set(schritte),
         );
 
+        // Die Vererbung gehoert IN die Schleife, nicht dahinter. Ein Feld in
+        // einer verborgenen Gruppe ist verborgen — und eine Regel, die dieses
+        // Feld prueft, muss es als leer lesen. Stuende die Vererbung erst
+        // danach, laese der Browser den alten Wert weiter mit, waehrend der
+        // Server ihn schon weggeworfen hat: dieselbe Definition, zwei
+        // verschiedene Formulare.
+        vererben(naechste, elternschaft, gruppen, schritte);
+
         const stabil =
             gleich(naechste.felder, sichtbareFelder) &&
             gleich(naechste.gruppen, sichtbareGruppen) &&
@@ -102,21 +110,6 @@ export function sichtbarkeit(
         }
     }
 
-    // Ein Feld in einem verborgenen Rahmen ist verborgen. Die Vererbung steht
-    // hier und nicht in jeder Regel, sonst muesste sie jeder, der eine Gruppe
-    // ausblendet, von Hand auf alle Felder darin schreiben.
-    for (const [feld, vorfahren] of elternschaft) {
-        const versteckt = vorfahren.some(
-            (kennung) =>
-                (gruppen.includes(kennung) && !sichtbareGruppen.has(kennung)) ||
-                (schritte.includes(kennung) && !sichtbareSchritte.has(kennung)),
-        );
-
-        if (versteckt) {
-            sichtbareFelder.delete(feld);
-        }
-    }
-
     return {
         sichtbareFelder,
         pflichtFelder: pflichtBestimmen(definition, anwendbar, werte, sichtbareFelder),
@@ -124,6 +117,32 @@ export function sichtbarkeit(
         sichtbareSchritte,
         zyklen,
     };
+}
+
+/**
+ * Ein Feld in einem verborgenen Rahmen ist verborgen.
+ *
+ * Die Regel steht hier und nicht in jeder Bedingung: sonst muesste jeder, der
+ * eine Gruppe ausblendet, dieselbe Regel von Hand auf jedes Feld darin
+ * schreiben — und beim naechsten hinzugefuegten Feld vergisst er es.
+ */
+function vererben(
+    stand: { felder: Set<string>; gruppen: Set<string>; schritte: Set<string> },
+    elternschaft: Map<string, string[]>,
+    alleGruppen: string[],
+    alleSchritte: string[],
+): void {
+    for (const [feld, vorfahren] of elternschaft) {
+        const versteckt = vorfahren.some(
+            (kennung) =>
+                (alleGruppen.includes(kennung) && !stand.gruppen.has(kennung)) ||
+                (alleSchritte.includes(kennung) && !stand.schritte.has(kennung)),
+        );
+
+        if (versteckt) {
+            stand.felder.delete(feld);
+        }
+    }
 }
 
 function einDurchlauf(

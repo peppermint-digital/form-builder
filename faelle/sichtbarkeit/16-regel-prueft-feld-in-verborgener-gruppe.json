@@ -1,0 +1,40 @@
+{
+  "name": "Eine Regel liest ein Feld in einer verborgenen Gruppe als leer",
+  "warum": "Die Vererbung muss IN der Auswertung stattfinden, nicht dahinter. Sonst liest der Browser den alten Wert eines ausgeblendeten Feldes weiter mit, waehrend der Server ihn schon weggeworfen hat — dieselbe Definition ergibt dann zwei verschiedene Formulare.",
+  "definition": {
+    "fields": [
+      { "name": "a", "label": "a", "type": "text" },
+      { "name": "b", "label": "b", "type": "text" },
+      { "name": "c", "label": "c", "type": "text" }
+    ],
+    "layout": [
+      { "type": "group", "id": "g1", "children": [{ "type": "row", "columns": [["b"]] }] },
+      { "type": "row", "columns": [["a"]] },
+      { "type": "row", "columns": [["c"]] }
+    ],
+    "conditions": [
+      {
+        "id": "r1",
+        "target": { "kind": "group", "ref": "g1" },
+        "effect": "show",
+        "match": "all",
+        "tests": [{ "field": "a", "op": "is", "value": "ja" }]
+      },
+      {
+        "id": "r2",
+        "target": { "kind": "field", "ref": "c" },
+        "effect": "show",
+        "match": "all",
+        "tests": [{ "field": "b", "op": "is", "value": "ja" }]
+      }
+    ]
+  },
+  "werte": { "a": "nein", "b": "ja" },
+  "erwartet": {
+    "sichtbareFelder": ["a"],
+    "pflichtFelder": [],
+    "sichtbareGruppen": [],
+    "sichtbareSchritte": [],
+    "zyklen": []
+  }
+}
