@@ -1,0 +1,49 @@
+{
+  "name": "Ein Ankreuzfeld trifft, egal ob es als '1' oder als true ankommt",
+  "warum": "Im Browser ist der Wert '1', ueber die Schnittstelle kann true ankommen. Zwei Schreibweisen desselben Hakens duerfen nicht zwei verschiedene Formulare ergeben.",
+  "definition": {
+    "fields": [
+      {
+        "name": "agb",
+        "label": "agb",
+        "type": "checkbox"
+      },
+      {
+        "name": "zusatz",
+        "label": "zusatz",
+        "type": "text"
+      }
+    ],
+    "conditions": [
+      {
+        "id": "r1",
+        "target": {
+          "kind": "field",
+          "ref": "zusatz"
+        },
+        "effect": "show",
+        "match": "all",
+        "tests": [
+          {
+            "field": "agb",
+            "op": "is",
+            "value": "1"
+          }
+        ]
+      }
+    ]
+  },
+  "werte": {
+    "agb": true
+  },
+  "erwartet": {
+    "sichtbareFelder": [
+      "agb",
+      "zusatz"
+    ],
+    "pflichtFelder": [],
+    "sichtbareGruppen": [],
+    "sichtbareSchritte": [],
+    "zyklen": []
+  }
+}

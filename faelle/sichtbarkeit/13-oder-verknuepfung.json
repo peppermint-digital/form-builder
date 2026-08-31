@@ -1,0 +1,61 @@
+{
+  "name": "Bei match any reicht eine zutreffende Pruefung",
+  "warum": "Sonst waere jede Regel ein UND, und „zeige X bei A oder B\" muesste man doppelt anlegen.",
+  "definition": {
+    "fields": [
+      {
+        "name": "a",
+        "label": "a",
+        "type": "text"
+      },
+      {
+        "name": "b",
+        "label": "b",
+        "type": "text"
+      },
+      {
+        "name": "ziel",
+        "label": "ziel",
+        "type": "text"
+      }
+    ],
+    "conditions": [
+      {
+        "id": "r1",
+        "target": {
+          "kind": "field",
+          "ref": "ziel"
+        },
+        "effect": "show",
+        "match": "any",
+        "tests": [
+          {
+            "field": "a",
+            "op": "is",
+            "value": "x"
+          },
+          {
+            "field": "b",
+            "op": "is",
+            "value": "y"
+          }
+        ]
+      }
+    ]
+  },
+  "werte": {
+    "a": "irgendwas",
+    "b": "y"
+  },
+  "erwartet": {
+    "sichtbareFelder": [
+      "a",
+      "b",
+      "ziel"
+    ],
+    "pflichtFelder": [],
+    "sichtbareGruppen": [],
+    "sichtbareSchritte": [],
+    "zyklen": []
+  }
+}

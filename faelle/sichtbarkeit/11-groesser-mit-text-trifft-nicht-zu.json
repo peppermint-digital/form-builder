@@ -1,0 +1,48 @@
+{
+  "name": "Ein Groessenvergleich auf Text trifft nicht zu",
+  "warum": "Lieber gar nicht als zufaellig. Ein Vergleich, der bei Text irgendetwas liefert, versteckt Felder ohne erkennbaren Grund.",
+  "definition": {
+    "fields": [
+      {
+        "name": "anzahl",
+        "label": "anzahl",
+        "type": "number"
+      },
+      {
+        "name": "hinweis",
+        "label": "hinweis",
+        "type": "text"
+      }
+    ],
+    "conditions": [
+      {
+        "id": "r1",
+        "target": {
+          "kind": "field",
+          "ref": "hinweis"
+        },
+        "effect": "show",
+        "match": "all",
+        "tests": [
+          {
+            "field": "anzahl",
+            "op": "gt",
+            "value": "5"
+          }
+        ]
+      }
+    ]
+  },
+  "werte": {
+    "anzahl": "zwei"
+  },
+  "erwartet": {
+    "sichtbareFelder": [
+      "anzahl"
+    ],
+    "pflichtFelder": [],
+    "sichtbareGruppen": [],
+    "sichtbareSchritte": [],
+    "zyklen": []
+  }
+}

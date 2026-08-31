@@ -1,0 +1,49 @@
+{
+  "name": "Trifft die show-Regel zu, ist das Ziel sichtbar",
+  "warum": "Die Gegenprobe zu 02 — sonst waere ein immer verborgenes Feld auch gruen.",
+  "definition": {
+    "fields": [
+      {
+        "name": "anreise",
+        "label": "anreise",
+        "type": "text"
+      },
+      {
+        "name": "hotel",
+        "label": "hotel",
+        "type": "text"
+      }
+    ],
+    "conditions": [
+      {
+        "id": "r1",
+        "target": {
+          "kind": "field",
+          "ref": "hotel"
+        },
+        "effect": "show",
+        "match": "all",
+        "tests": [
+          {
+            "field": "anreise",
+            "op": "is",
+            "value": "ja"
+          }
+        ]
+      }
+    ]
+  },
+  "werte": {
+    "anreise": "ja"
+  },
+  "erwartet": {
+    "sichtbareFelder": [
+      "anreise",
+      "hotel"
+    ],
+    "pflichtFelder": [],
+    "sichtbareGruppen": [],
+    "sichtbareSchritte": [],
+    "zyklen": []
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "name": "Eine verborgene Gruppe nimmt ihre Felder mit",
+  "warum": "Sonst muesste jeder, der eine Gruppe ausblendet, dieselbe Regel von Hand auf jedes Feld darin schreiben — und beim naechsten hinzugefuegten Feld vergisst er es.",
+  "definition": {
+    "fields": [
+      {
+        "name": "a",
+        "label": "a",
+        "type": "text"
+      },
+      {
+        "name": "b",
+        "label": "b",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "layout": [
+      {
+        "type": "group",
+        "id": "g1",
+        "children": [
+          {
+            "type": "row",
+            "columns": [
+              [
+                "b"
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "type": "row",
+        "columns": [
+          [
+            "a"
+          ]
+        ]
+      }
+    ],
+    "conditions": [
+      {
+        "id": "r1",
+        "target": {
+          "kind": "group",
+          "ref": "g1"
+        },
+        "effect": "show",
+        "match": "all",
+        "tests": [
+          {
+            "field": "a",
+            "op": "is",
+            "value": "ja"
+          }
+        ]
+      }
+    ]
+  },
+  "werte": {
+    "a": "nein"
+  },
+  "erwartet": {
+    "sichtbareFelder": [
+      "a"
+    ],
+    "pflichtFelder": [],
+    "sichtbareGruppen": [],
+    "sichtbareSchritte": [],
+    "zyklen": []
+  }
+}

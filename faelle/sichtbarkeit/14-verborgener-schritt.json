@@ -1,0 +1,81 @@
+{
+  "name": "Ein verborgener Schritt nimmt seine Felder mit",
+  "warum": "Sonst blieben die Felder einer uebersprungenen Seite Pflicht — dieselbe Sackgasse wie 04, nur eine Ebene hoeher.",
+  "definition": {
+    "fields": [
+      {
+        "name": "a",
+        "label": "a",
+        "type": "text"
+      },
+      {
+        "name": "b",
+        "label": "b",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "layout": [
+      {
+        "type": "step",
+        "id": "s1",
+        "children": [
+          {
+            "type": "row",
+            "columns": [
+              [
+                "a"
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "type": "step",
+        "id": "s2",
+        "children": [
+          {
+            "type": "row",
+            "columns": [
+              [
+                "b"
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "conditions": [
+      {
+        "id": "r1",
+        "target": {
+          "kind": "step",
+          "ref": "s2"
+        },
+        "effect": "show",
+        "match": "all",
+        "tests": [
+          {
+            "field": "a",
+            "op": "is",
+            "value": "ja"
+          }
+        ]
+      }
+    ]
+  },
+  "werte": {
+    "a": "nein"
+  },
+  "erwartet": {
+    "sichtbareFelder": [
+      "a"
+    ],
+    "pflichtFelder": [],
+    "sichtbareGruppen": [],
+    "sichtbareSchritte": [
+      "s1"
+    ],
+    "zyklen": []
+  }
+}

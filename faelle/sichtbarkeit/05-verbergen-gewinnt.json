@@ -1,0 +1,64 @@
+{
+  "name": "Treffen show und hide zugleich zu, gewinnt hide",
+  "warum": "Ein Feld, das sichtbar ist, obwohl es niemand sehen sollte, sammelt Angaben ein, die nicht erhoben werden duerfen.",
+  "definition": {
+    "fields": [
+      {
+        "name": "a",
+        "label": "a",
+        "type": "text"
+      },
+      {
+        "name": "ziel",
+        "label": "ziel",
+        "type": "text"
+      }
+    ],
+    "conditions": [
+      {
+        "id": "r1",
+        "target": {
+          "kind": "field",
+          "ref": "ziel"
+        },
+        "effect": "show",
+        "match": "all",
+        "tests": [
+          {
+            "field": "a",
+            "op": "is",
+            "value": "x"
+          }
+        ]
+      },
+      {
+        "id": "r2",
+        "target": {
+          "kind": "field",
+          "ref": "ziel"
+        },
+        "effect": "hide",
+        "match": "all",
+        "tests": [
+          {
+            "field": "a",
+            "op": "is",
+            "value": "x"
+          }
+        ]
+      }
+    ]
+  },
+  "werte": {
+    "a": "x"
+  },
+  "erwartet": {
+    "sichtbareFelder": [
+      "a"
+    ],
+    "pflichtFelder": [],
+    "sichtbareGruppen": [],
+    "sichtbareSchritte": [],
+    "zyklen": []
+  }
+}

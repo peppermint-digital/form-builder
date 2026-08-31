@@ -31,6 +31,8 @@ export type {
     AufgeloesterSchritt,
     AufgeloesterSchrittknoten,
 } from './definition';
+export { sichtbarkeit } from './sichtbarkeit';
+export type { Sichtbarkeit, Werte } from './sichtbarkeit';
 export type {
     Ablaufkante,
     Bedingungsregel,

@@ -1,0 +1,48 @@
+{
+  "name": "Eine show-Regel macht das Ziel zunaechst unsichtbar",
+  "warum": "Ohne diese Umkehr waere „zeige X, wenn Y\" wirkungslos — X waere ohnehin schon sichtbar.",
+  "definition": {
+    "fields": [
+      {
+        "name": "anreise",
+        "label": "anreise",
+        "type": "text"
+      },
+      {
+        "name": "hotel",
+        "label": "hotel",
+        "type": "text"
+      }
+    ],
+    "conditions": [
+      {
+        "id": "r1",
+        "target": {
+          "kind": "field",
+          "ref": "hotel"
+        },
+        "effect": "show",
+        "match": "all",
+        "tests": [
+          {
+            "field": "anreise",
+            "op": "is",
+            "value": "ja"
+          }
+        ]
+      }
+    ]
+  },
+  "werte": {
+    "anreise": "nein"
+  },
+  "erwartet": {
+    "sichtbareFelder": [
+      "anreise"
+    ],
+    "pflichtFelder": [],
+    "sichtbareGruppen": [],
+    "sichtbareSchritte": [],
+    "zyklen": []
+  }
+}

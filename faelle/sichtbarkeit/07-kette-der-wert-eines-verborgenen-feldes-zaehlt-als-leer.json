@@ -1,0 +1,70 @@
+{
+  "name": "In einer Kette zaehlt der Wert eines verborgenen Feldes als leer",
+  "warum": "Der Server wirft die Werte verborgener Felder weg. Zaehlte der alte Inhalt hier weiter mit, entschieden Browser und Server verschieden darueber, was sichtbar ist — und der Unterschied faellt erst auf, wenn jemand nicht absenden kann.",
+  "definition": {
+    "fields": [
+      {
+        "name": "a",
+        "label": "a",
+        "type": "text"
+      },
+      {
+        "name": "b",
+        "label": "b",
+        "type": "text"
+      },
+      {
+        "name": "c",
+        "label": "c",
+        "type": "text"
+      }
+    ],
+    "conditions": [
+      {
+        "id": "r1",
+        "target": {
+          "kind": "field",
+          "ref": "b"
+        },
+        "effect": "show",
+        "match": "all",
+        "tests": [
+          {
+            "field": "a",
+            "op": "is",
+            "value": "ja"
+          }
+        ]
+      },
+      {
+        "id": "r2",
+        "target": {
+          "kind": "field",
+          "ref": "c"
+        },
+        "effect": "show",
+        "match": "all",
+        "tests": [
+          {
+            "field": "b",
+            "op": "is",
+            "value": "ja"
+          }
+        ]
+      }
+    ]
+  },
+  "werte": {
+    "a": "nein",
+    "b": "ja"
+  },
+  "erwartet": {
+    "sichtbareFelder": [
+      "a"
+    ],
+    "pflichtFelder": [],
+    "sichtbareGruppen": [],
+    "sichtbareSchritte": [],
+    "zyklen": []
+  }
+}

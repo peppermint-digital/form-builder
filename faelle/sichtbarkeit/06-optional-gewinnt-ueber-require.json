@@ -1,0 +1,66 @@
+{
+  "name": "Widersprechen sich require und optional, gewinnt optional",
+  "warum": "Die andere Richtung waere ein Formular, das sich nicht absenden laesst — schlimmer als eine fehlende Angabe.",
+  "definition": {
+    "fields": [
+      {
+        "name": "a",
+        "label": "a",
+        "type": "text"
+      },
+      {
+        "name": "b",
+        "label": "b",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "conditions": [
+      {
+        "id": "r1",
+        "target": {
+          "kind": "field",
+          "ref": "b"
+        },
+        "effect": "require",
+        "match": "all",
+        "tests": [
+          {
+            "field": "a",
+            "op": "is",
+            "value": "x"
+          }
+        ]
+      },
+      {
+        "id": "r2",
+        "target": {
+          "kind": "field",
+          "ref": "b"
+        },
+        "effect": "optional",
+        "match": "all",
+        "tests": [
+          {
+            "field": "a",
+            "op": "is",
+            "value": "x"
+          }
+        ]
+      }
+    ]
+  },
+  "werte": {
+    "a": "x"
+  },
+  "erwartet": {
+    "sichtbareFelder": [
+      "a",
+      "b"
+    ],
+    "pflichtFelder": [],
+    "sichtbareGruppen": [],
+    "sichtbareSchritte": [],
+    "zyklen": []
+  }
+}

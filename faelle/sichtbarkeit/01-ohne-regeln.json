@@ -1,0 +1,32 @@
+{
+  "name": "Ohne Regeln gilt die Vorgabe",
+  "warum": "Ein Formular ohne Bedingungen muss sich Zeichen fuer Zeichen verhalten wie vor dieser Ebene. Waere das nicht so, braeuchte jedes bestehende Formular eine Migration.",
+  "definition": {
+    "fields": [
+      {
+        "name": "email",
+        "label": "email",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "firma",
+        "label": "firma",
+        "type": "text"
+      }
+    ]
+  },
+  "werte": {},
+  "erwartet": {
+    "sichtbareFelder": [
+      "email",
+      "firma"
+    ],
+    "pflichtFelder": [
+      "email"
+    ],
+    "sichtbareGruppen": [],
+    "sichtbareSchritte": [],
+    "zyklen": []
+  }
+}

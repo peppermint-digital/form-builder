@@ -1,0 +1,51 @@
+{
+  "name": "require macht ein sichtbares Feld zur Pflicht",
+  "warum": "„Nur dann Pflicht\" ist etwas anderes als „nur dann sichtbar\" — ein Feld kann sichtbar und freiwillig sein.",
+  "definition": {
+    "fields": [
+      {
+        "name": "rechnung",
+        "label": "rechnung",
+        "type": "text"
+      },
+      {
+        "name": "ust_id",
+        "label": "ust_id",
+        "type": "text"
+      }
+    ],
+    "conditions": [
+      {
+        "id": "r1",
+        "target": {
+          "kind": "field",
+          "ref": "ust_id"
+        },
+        "effect": "require",
+        "match": "all",
+        "tests": [
+          {
+            "field": "rechnung",
+            "op": "is",
+            "value": "firma"
+          }
+        ]
+      }
+    ]
+  },
+  "werte": {
+    "rechnung": "firma"
+  },
+  "erwartet": {
+    "sichtbareFelder": [
+      "rechnung",
+      "ust_id"
+    ],
+    "pflichtFelder": [
+      "ust_id"
+    ],
+    "sichtbareGruppen": [],
+    "sichtbareSchritte": [],
+    "zyklen": []
+  }
+}

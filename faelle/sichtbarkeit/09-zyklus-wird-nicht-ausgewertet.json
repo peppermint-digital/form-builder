@@ -1,0 +1,66 @@
+{
+  "name": "Regeln, die sich gegenseitig bedingen, werden gemeldet statt angewandt",
+  "warum": "BEIDE beteiligten Regeln muessen gemeldet werden. Eine Erkennung, die je nach Reihenfolge nur eine findet, liefert beim naechsten Umsortieren ein anderes Ergebnis.",
+  "definition": {
+    "fields": [
+      {
+        "name": "a",
+        "label": "a",
+        "type": "text"
+      },
+      {
+        "name": "b",
+        "label": "b",
+        "type": "text"
+      }
+    ],
+    "conditions": [
+      {
+        "id": "r1",
+        "target": {
+          "kind": "field",
+          "ref": "a"
+        },
+        "effect": "show",
+        "match": "all",
+        "tests": [
+          {
+            "field": "b",
+            "op": "is",
+            "value": "ja"
+          }
+        ]
+      },
+      {
+        "id": "r2",
+        "target": {
+          "kind": "field",
+          "ref": "b"
+        },
+        "effect": "show",
+        "match": "all",
+        "tests": [
+          {
+            "field": "a",
+            "op": "is",
+            "value": "ja"
+          }
+        ]
+      }
+    ]
+  },
+  "werte": {},
+  "erwartet": {
+    "sichtbareFelder": [
+      "a",
+      "b"
+    ],
+    "pflichtFelder": [],
+    "sichtbareGruppen": [],
+    "sichtbareSchritte": [],
+    "zyklen": [
+      "r1",
+      "r2"
+    ]
+  }
+}

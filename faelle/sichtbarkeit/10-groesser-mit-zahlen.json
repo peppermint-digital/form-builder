@@ -1,0 +1,49 @@
+{
+  "name": "Der Groessenvergleich rechnet mit Zahlen",
+  "warum": "Auf Text verglichen ist '10' kleiner als '9'. Das sieht im Editor richtig aus und liefert im Formular Ergebnisse, die niemand vorhersagt.",
+  "definition": {
+    "fields": [
+      {
+        "name": "anzahl",
+        "label": "anzahl",
+        "type": "number"
+      },
+      {
+        "name": "hinweis",
+        "label": "hinweis",
+        "type": "text"
+      }
+    ],
+    "conditions": [
+      {
+        "id": "r1",
+        "target": {
+          "kind": "field",
+          "ref": "hinweis"
+        },
+        "effect": "show",
+        "match": "all",
+        "tests": [
+          {
+            "field": "anzahl",
+            "op": "gt",
+            "value": "5"
+          }
+        ]
+      }
+    ]
+  },
+  "werte": {
+    "anzahl": "10"
+  },
+  "erwartet": {
+    "sichtbareFelder": [
+      "anzahl",
+      "hinweis"
+    ],
+    "pflichtFelder": [],
+    "sichtbareGruppen": [],
+    "sichtbareSchritte": [],
+    "zyklen": []
+  }
+}

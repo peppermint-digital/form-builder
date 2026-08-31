@@ -1,0 +1,49 @@
+{
+  "name": "Ein verborgenes Pflichtfeld ist nicht Pflicht",
+  "warum": "Der wichtigste Fall im ganzen Satz. Bliebe es Pflicht, liesse sich das Formular nicht abschicken — und nichts auf der Seite zeigt, woran es liegt.",
+  "definition": {
+    "fields": [
+      {
+        "name": "anreise",
+        "label": "anreise",
+        "type": "text"
+      },
+      {
+        "name": "hotelname",
+        "label": "hotelname",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "conditions": [
+      {
+        "id": "r1",
+        "target": {
+          "kind": "field",
+          "ref": "hotelname"
+        },
+        "effect": "show",
+        "match": "all",
+        "tests": [
+          {
+            "field": "anreise",
+            "op": "is",
+            "value": "ja"
+          }
+        ]
+      }
+    ]
+  },
+  "werte": {
+    "anreise": "nein"
+  },
+  "erwartet": {
+    "sichtbareFelder": [
+      "anreise"
+    ],
+    "pflichtFelder": [],
+    "sichtbareGruppen": [],
+    "sichtbareSchritte": [],
+    "zyklen": []
+  }
+}
