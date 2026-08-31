@@ -91,9 +91,11 @@ export function feldHinzufuegen(
     definition: FormularDefinition,
     feld: FormularFeld,
 ): FormularDefinition {
-    const { fields, layout } = layoutSicherstellen(definition);
+    const gesichert = layoutSicherstellen(definition);
+    const { fields, layout } = gesichert;
 
     return {
+        ...gesichert,
         fields: [...fields, feld],
         layout: [...layout, { type: 'row', columns: [[feld.name]] }],
     };
@@ -103,9 +105,11 @@ export function feldEntfernen(
     definition: FormularDefinition,
     name: string,
 ): FormularDefinition {
-    const { fields, layout } = layoutSicherstellen(definition);
+    const gesichert = layoutSicherstellen(definition);
+    const { fields, layout } = gesichert;
 
     return {
+        ...gesichert,
         fields: fields.filter((feld) => feld.name !== name),
         layout: ausLayoutEntfernen(layout, name),
     };
@@ -124,7 +128,8 @@ export function feldAendern(
     name: string,
     aenderungen: Partial<FormularFeld>,
 ): FormularDefinition {
-    const { fields, layout } = layoutSicherstellen(definition);
+    const gesichert = layoutSicherstellen(definition);
+    const { fields, layout } = gesichert;
     const neuerName = aenderungen.name;
 
     const neueFelder = fields.map((feld) =>
@@ -132,10 +137,11 @@ export function feldAendern(
     );
 
     if (!neuerName || neuerName === name) {
-        return { fields: neueFelder, layout };
+        return { ...gesichert, fields: neueFelder };
     }
 
     return {
+        ...gesichert,
         fields: neueFelder,
         layout: layout.map((knoten) =>
             istZeile(knoten)
@@ -162,7 +168,8 @@ export function feldVerschieben(
     name: string,
     ziel: Ablageziel,
 ): FormularDefinition {
-    const { fields, layout } = layoutSicherstellen(definition);
+    const gesichert = layoutSicherstellen(definition);
+    const { fields, layout } = gesichert;
 
     if (!fields.some((feld) => feld.name === name)) {
         return definition;
@@ -175,7 +182,7 @@ export function feldVerschieben(
         const neu = [...bereinigt];
         neu.splice(position, 0, { type: 'row', columns: [[name]] });
 
-        return { fields, layout: neu };
+        return { ...gesichert, layout: neu };
     }
 
     const zeile = bereinigt[ziel.zeile];
@@ -183,11 +190,11 @@ export function feldVerschieben(
     // Die Zielzeile kann durch das Herausnehmen verschwunden sein — dann war
     // das Feld ihr einziger Inhalt, und es bleibt, wo es war.
     if (!zeile || !istZeile(zeile)) {
-        return { fields, layout };
+        return gesichert;
     }
 
     if (zeile.columns.length >= MAX_SPALTEN) {
-        return { fields, layout };
+        return gesichert;
     }
 
     const columns = [...zeile.columns];
@@ -196,7 +203,7 @@ export function feldVerschieben(
     const neu = [...bereinigt];
     neu[ziel.zeile] = { type: 'row', columns };
 
-    return { fields, layout: neu };
+    return { ...gesichert, layout: neu };
 }
 
 /** Schiebt eine ganze Zeile nach oben oder unten. */
@@ -205,10 +212,11 @@ export function zeileVerschieben(
     von: number,
     nach: number,
 ): FormularDefinition {
-    const { fields, layout } = layoutSicherstellen(definition);
+    const gesichert = layoutSicherstellen(definition);
+    const { fields, layout } = gesichert;
 
     if (von < 0 || von >= layout.length || nach < 0 || nach >= layout.length) {
-        return { fields, layout };
+        return gesichert;
     }
 
     const neu = [...layout];
@@ -218,7 +226,7 @@ export function zeileVerschieben(
         neu.splice(nach, 0, bewegt);
     }
 
-    return { fields, layout: neu };
+    return { ...gesichert, layout: neu };
 }
 
 export function abschnittHinzufuegen(
@@ -226,7 +234,8 @@ export function abschnittHinzufuegen(
     titel: string,
     position?: number,
 ): FormularDefinition {
-    const { fields, layout } = layoutSicherstellen(definition);
+    const gesichert = layoutSicherstellen(definition);
+    const { fields, layout } = gesichert;
     const neu = [...layout];
     const stelle = position ?? neu.length;
 
@@ -235,21 +244,22 @@ export function abschnittHinzufuegen(
         title: titel,
     });
 
-    return { fields, layout: neu };
+    return { ...gesichert, layout: neu };
 }
 
 export function knotenEntfernen(
     definition: FormularDefinition,
     index: number,
 ): FormularDefinition {
-    const { fields, layout } = layoutSicherstellen(definition);
+    const gesichert = layoutSicherstellen(definition);
+    const { fields, layout } = gesichert;
     const knoten = layout[index];
 
     if (!knoten || istZeile(knoten)) {
-        return { fields, layout };
+        return gesichert;
     }
 
-    return { fields, layout: layout.filter((_, i) => i !== index) };
+    return { ...gesichert, layout: layout.filter((_, i) => i !== index) };
 }
 
 /**

@@ -225,4 +225,69 @@ describe('GraphEditor', () => {
 
         expect(flaeche(container).getByText('a')).toBeDefined();
     });
+
+    it('legt ein Feld an und behält dabei die Bedingungen', () => {
+        // Ohne Felder anlegen zu koennen waere der Graph keine Hauptansicht,
+        // sondern eine Zweitansicht mit Luecke.
+        const onChange = vi.fn();
+
+        render(
+            <GraphEditor
+                definition={{
+                    fields: [feld('a')],
+                    conditions: [
+                        {
+                            id: 'r1',
+                            target: { kind: 'field', ref: 'a' },
+                            effect: 'show',
+                            match: 'all',
+                            tests: [{ field: 'a', op: 'filled' }],
+                        },
+                    ],
+                }}
+                onChange={onChange}
+            />,
+        );
+
+        fireEvent.click(screen.getByText('Feld hinzufügen'));
+
+        const danach = onChange.mock.calls[0]![0];
+
+        expect(danach.fields).toHaveLength(2);
+        // Der Fehler, der in JEDER Bearbeitungsfunktion sass: das Ergebnis
+        // wurde als { fields, layout } neu gebaut, und die Bedingungen fielen
+        // lautlos weg.
+        expect(danach.conditions).toHaveLength(1);
+    });
+
+    it('öffnet die Feldmaske für den angeklickten Knoten', () => {
+        const { container } = render(
+            <GraphEditor
+                definition={{ fields: [feld('vorname')] }}
+                onChange={() => {}}
+            />,
+        );
+
+        fireEvent.click(flaeche(container).getByText('vorname'));
+
+        expect(screen.getByText('Beschriftung')).toBeDefined();
+        expect(screen.getByText('Feld entfernen')).toBeDefined();
+    });
+
+    it('bietet bei einem gesperrten Feld kein Entfernen an', () => {
+        // Darunter liegen Antworten — die waeren danach ohne Feld. Der
+        // Waechter auf der Serverseite weist es ohnehin ab; hier erspart es
+        // den Fehlschlag.
+        const { container } = render(
+            <GraphEditor
+                definition={{ fields: [feld('email')] }}
+                onChange={() => {}}
+                gesperrteFelder={{ email: 'Darunter liegen Anmeldungen.' }}
+            />,
+        );
+
+        fireEvent.click(flaeche(container).getByText('email'));
+
+        expect(screen.queryByText('Feld entfernen')).toBeNull();
+    });
 });

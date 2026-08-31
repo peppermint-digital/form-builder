@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { layoutSicherstellen } from '../bearbeiten';
+import {
+    abschnittHinzufuegen,
+    definitionBereinigen,
+    feldAendern,
+    feldEntfernen,
+    feldHinzufuegen,
+    feldVerschieben,
+    layoutSicherstellen,
+    zeileVerschieben,
+} from '../bearbeiten';
 import {
     definitionLesen,
     felderInReihenfolge,
@@ -219,5 +228,67 @@ describe('layoutSicherstellen', () => {
         });
 
         expect(ergaenzt.conditions).toEqual([regel]);
+    });
+});
+
+describe('Jeder Editor-Handgriff behält die Bedingungen', () => {
+    /**
+     * Der Fehler, der hier abgefangen wird, war in JEDER Bearbeitungsfunktion.
+     *
+     * Sie bauten ihr Ergebnis als `{ fields, layout }` neu auf. Alles, was
+     * sonst noch an der Definition hängt — Bedingungen, Ablauf, Anordnung —
+     * fiel damit bei jedem Ziehen, Umbenennen und Hinzufügen weg. Lautlos:
+     * ein Formular ohne Bedingungen sieht aus wie eines, bei dem nie welche
+     * eingestellt waren.
+     */
+    const mitAllem: FormularDefinition = {
+        fields: [feld('a'), feld('b')],
+        layout: [
+            { type: 'row', columns: [['a']] },
+            { type: 'row', columns: [['b']] },
+        ],
+        conditions: [regel],
+        flow: [{ id: 'k1', from: 's1', to: 's2' }],
+        graph: { positions: { 'feld:a': { x: 5, y: 5 } } },
+    };
+
+    const behaeltAlles = (danach: FormularDefinition) => {
+        expect(danach.conditions).toEqual(mitAllem.conditions);
+        expect(danach.flow).toEqual(mitAllem.flow);
+        expect(danach.graph).toEqual(mitAllem.graph);
+    };
+
+    it('beim Hinzufügen', () => {
+        behaeltAlles(feldHinzufuegen(mitAllem, feld('c')));
+    });
+
+    it('beim Entfernen', () => {
+        behaeltAlles(feldEntfernen(mitAllem, 'b'));
+    });
+
+    it('beim Ändern der Beschriftung', () => {
+        behaeltAlles(feldAendern(mitAllem, 'a', { label: 'Neu' }));
+    });
+
+    it('beim Umbenennen', () => {
+        behaeltAlles(feldAendern(mitAllem, 'a', { name: 'a_neu' }));
+    });
+
+    it('beim Verschieben', () => {
+        behaeltAlles(
+            feldVerschieben(mitAllem, 'b', { art: 'neueZeile', position: 0 }),
+        );
+    });
+
+    it('beim Verschieben einer Zeile', () => {
+        behaeltAlles(zeileVerschieben(mitAllem, 0, 1));
+    });
+
+    it('beim Hinzufügen eines Abschnitts', () => {
+        behaeltAlles(abschnittHinzufuegen(mitAllem, 'Überschrift'));
+    });
+
+    it('beim Bereinigen vor dem Speichern', () => {
+        behaeltAlles(definitionBereinigen(mitAllem));
     });
 });

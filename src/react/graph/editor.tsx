@@ -15,11 +15,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
     definitionLesen,
+    feldAendern,
+    feldEntfernen,
+    feldHinzufuegen,
+    naechsterFeldname,
     sichtbarkeit,
     type FormularDefinition,
+    type FormularFeld,
     type Knotenposition,
     type RoheDefinition,
 } from '../../core';
+import Feldmaske, { type FeldTypAuswahl } from '../editor/feldmaske';
 import {
     knotenAusDefinition,
     positionenSchreiben,
@@ -33,7 +39,7 @@ import {
     regelKnoten,
     verbindungVerarbeiten,
 } from './kanten';
-import { zielArtVon, type Knotenart } from './kennung';
+import { knotenRef, zielArtVon, type Knotenart } from './kennung';
 import { KNOTENARTEN } from './knoten';
 
 /**
@@ -59,7 +65,11 @@ export interface GraphEditorProps {
     gesperrteFelder?: Record<string, string>;
     /** Hoehe der Zeichenflaeche. React Flow braucht eine, sonst bleibt sie leer. */
     hoehe?: string;
+    /** Zusaetzliche, produkteigene Feldtypen — wie im Listen-Editor. */
+    zusatzTypen?: FeldTypAuswahl[];
 }
+
+const KEINE_TYPEN: FeldTypAuswahl[] = [];
 
 /**
  * Der Knoten-Editor.
@@ -78,7 +88,9 @@ export default function GraphEditor({
     onChange,
     gesperrteFelder = KEINE_SPERREN,
     hoehe = '600px',
+    zusatzTypen = KEINE_TYPEN,
 }: GraphEditorProps) {
+    const [gewaehlt, setGewaehlt] = useState<string | null>(null);
     const gelesen = useMemo(() => definitionLesen(definition), [definition]);
     const zyklen = useMemo(() => sichtbarkeit(gelesen).zyklen, [gelesen]);
 
@@ -264,6 +276,19 @@ export default function GraphEditor({
         [gelesen, onChange],
     );
 
+    const feldAnlegen = useCallback(() => {
+        const feld: FormularFeld = {
+            name: naechsterFeldname(gelesen),
+            label: 'Neues Feld',
+            type: 'text',
+        };
+
+        onChange(feldHinzufuegen(gelesen, feld));
+        setGewaehlt(feld.name);
+    }, [gelesen, onChange]);
+
+    const gewaehltesFeld = gelesen.fields.find((feld) => feld.name === gewaehlt);
+
     const anordnungZuruecksetzen = useCallback(() => {
         // Ohne `graph` faellt die Anordnung auf die abgeleitete zurueck — und
         // die entsteht aus der Reihenfolge, also bei jedem Oeffnen gleich.
@@ -273,6 +298,10 @@ export default function GraphEditor({
     return (
         <div className="pm-fb-graph" style={{ height: hoehe }}>
             <div className="pm-fb-graph__leiste">
+                <button type="button" className="pm-fb-knopf" onClick={feldAnlegen}>
+                    Feld hinzufügen
+                </button>
+
                 <BedingungAnlegen
                     knoten={strukturKnoten}
                     onAnlegen={(feld, ziel) => onChange(regelAnlegen(gelesen, feld, ziel))}
@@ -295,19 +324,77 @@ export default function GraphEditor({
                 </p>
             )}
 
-            <ReactFlow
-                nodes={knoten}
-                edges={kanten}
-                onNodesChange={knotenGeaendert}
-                onEdgesChange={onKantenChange}
-                onEdgesDelete={kantenEntfernt}
-                onConnect={verbinden}
-                nodeTypes={KNOTENARTEN}
-                fitView
-            >
-                <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-                <Controls />
-            </ReactFlow>
+            <div className="pm-fb-graph__flaeche">
+                <ReactFlow
+                    nodes={knoten}
+                    edges={kanten}
+                    onNodesChange={knotenGeaendert}
+                    onEdgesChange={onKantenChange}
+                    onEdgesDelete={kantenEntfernt}
+                    onConnect={verbinden}
+                    onNodeClick={(_, knoten) => {
+                        const bezug = knotenRef(knoten.id);
+
+                        setGewaehlt(bezug?.art === 'feld' ? bezug.ref : null);
+                    }}
+                    nodeTypes={KNOTENARTEN}
+                    fitView
+                >
+                    <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
+                    <Controls />
+                </ReactFlow>
+
+                {gewaehltesFeld && (
+                    <aside className="pm-fb-graph__maske">
+                        <div className="pm-fb-knoten__zeile">
+                            <strong>{gewaehltesFeld.label || gewaehltesFeld.name}</strong>
+                            <button
+                                type="button"
+                                className="pm-fb-knopf pm-fb-knopf--still"
+                                onClick={() => setGewaehlt(null)}
+                            >
+                                Schließen
+                            </button>
+                        </div>
+
+                        <Feldmaske
+                            feld={gewaehltesFeld}
+                            onChange={(aenderungen) => {
+                                onChange(
+                                    feldAendern(gelesen, gewaehltesFeld.name, aenderungen),
+                                );
+
+                                if (aenderungen.name) {
+                                    setGewaehlt(aenderungen.name);
+                                }
+                            }}
+                            {...(gesperrteFelder[gewaehltesFeld.name]
+                                ? { sperrgrund: gesperrteFelder[gewaehltesFeld.name] }
+                                : {})}
+                            zusatzTypen={zusatzTypen}
+                        />
+
+                        {/*
+                            Kein Loeschen bei gesperrten Feldern: darunter
+                            liegen Antworten, und die waeren danach ohne Feld.
+                            Der Waechter auf der Serverseite weist es ohnehin
+                            ab — hier erspart es den Fehlschlag.
+                        */}
+                        {!gesperrteFelder[gewaehltesFeld.name] && (
+                            <button
+                                type="button"
+                                className="pm-fb-knopf pm-fb-knopf--gefahr"
+                                onClick={() => {
+                                    onChange(feldEntfernen(gelesen, gewaehltesFeld.name));
+                                    setGewaehlt(null);
+                                }}
+                            >
+                                Feld entfernen
+                            </button>
+                        )}
+                    </aside>
+                )}
+            </div>
         </div>
     );
 }
