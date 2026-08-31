@@ -35,6 +35,7 @@ import {
     type RoheDefinition,
 } from '../../core';
 import Feldmaske, { type FeldTypAuswahl } from '../editor/feldmaske';
+import type { Systembaustein } from '../typen';
 import {
     anordnungVergessen,
     groesseSchreiben,
@@ -78,7 +79,17 @@ export interface GraphEditorProps {
     hoehe?: string;
     /** Zusaetzliche, produkteigene Feldtypen — wie im Listen-Editor. */
     zusatzTypen?: FeldTypAuswahl[];
+    /**
+     * Bausteine, die die ANWENDUNG zeichnet — Terminauswahl, Workshops.
+     *
+     * Sie erscheinen im Graphen, damit das Bild vollstaendig ist. Sie sind
+     * nicht bearbeitbar, kein Ziel einer Bedingung, und sie landen nie in der
+     * Definition.
+     */
+    systemBausteine?: Systembaustein[];
 }
+
+const KEINE_BAUSTEINE: Systembaustein[] = [];
 
 const KEINE_TYPEN: FeldTypAuswahl[] = [];
 
@@ -114,6 +125,7 @@ function GraphEditorInhalt({
     gesperrteFelder = KEINE_SPERREN,
     hoehe = '600px',
     zusatzTypen = KEINE_TYPEN,
+    systemBausteine = KEINE_BAUSTEINE,
 }: GraphEditorProps) {
     const { getIntersectingNodes } = useReactFlow();
 
@@ -161,10 +173,42 @@ function GraphEditorInhalt({
             },
         }));
 
+        // Ueber und unter der Struktur, in eigenen Bahnen. Sie gehoeren zum
+        // Bild, aber nicht zum Bauplan.
+        const vorher = systemBausteine.filter((b) => b.position === 'vorher');
+        const nachher = systemBausteine.filter((b) => b.position === 'nachher');
+        const unterkante = unterkanteVon(strukturKnoten);
+
+        for (const [stelle, baustein] of vorher.entries()) {
+            aus.push({
+                id: `system:${baustein.id}`,
+                type: 'system',
+                position: { x: 20, y: -(vorher.length - stelle) * 96 },
+                width: 220,
+                height: 64,
+                draggable: false,
+                selectable: false,
+                data: { ...baustein },
+            });
+        }
+
+        for (const [stelle, baustein] of nachher.entries()) {
+            aus.push({
+                id: `system:${baustein.id}`,
+                type: 'system',
+                position: { x: 20, y: unterkante + stelle * 96 },
+                width: 220,
+                height: 64,
+                draggable: false,
+                selectable: false,
+                data: { ...baustein },
+            });
+        }
+
         for (const regel of regelKnoten(
             gelesen,
             zyklen,
-            unterkanteVon(strukturKnoten),
+            unterkante + nachher.length * 96,
         )) {
             aus.push({
                 id: regel.id,
@@ -181,7 +225,14 @@ function GraphEditorInhalt({
         }
 
         return aus;
-    }, [gelesen, gesperrteFelder, regelEntfernenUndMelden, strukturKnoten, zyklen]);
+    }, [
+        gelesen,
+        gesperrteFelder,
+        regelEntfernenUndMelden,
+        strukturKnoten,
+        systemBausteine,
+        zyklen,
+    ]);
 
     const gebauteKanten = useMemo<Edge[]>(
         () =>

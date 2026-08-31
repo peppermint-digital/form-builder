@@ -168,9 +168,39 @@ export function RegelKnoten({ data, selected }: NodeProps) {
     );
 }
 
+export interface SystemKnotenDaten extends Record<string, unknown> {
+    titel: string;
+    beschreibung?: string;
+    position: 'vorher' | 'nachher';
+}
+
+/**
+ * Ein Baustein, den die Anwendung zeichnet.
+ *
+ * BEWUSST OHNE ANSCHLUESSE: er ist kein Ziel einer Bedingung und kein Feld.
+ * Ein Anschluss daran waere eine Einladung, eine Regel zu bauen, die es nicht
+ * geben kann — und der Editor muesste sie hinterher wieder abweisen.
+ */
+export function SystemKnoten({ data }: NodeProps) {
+    const daten = data as SystemKnotenDaten;
+
+    return (
+        <div className="pm-fb-knoten pm-fb-knoten--system">
+            <div className="pm-fb-knoten__titel">{daten.titel}</div>
+            <div className="pm-fb-knoten__zeile">
+                <span className="pm-fb-knoten__typ">
+                    {daten.position === 'vorher' ? 'über dem Formular' : 'unter dem Formular'}
+                </span>
+                <span className="pm-fb-knoten__system">automatisch</span>
+            </div>
+        </div>
+    );
+}
+
 export const KNOTENARTEN = {
     feld: FeldKnoten,
     gruppe: GruppeKnoten,
     schritt: SchrittKnoten,
     regel: RegelKnoten,
+    system: SystemKnoten,
 };

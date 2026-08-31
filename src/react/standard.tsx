@@ -8,6 +8,7 @@ import type {
     MehrzeiligProps,
     OptionsgruppeProps,
     SchrittsteuerungProps,
+    SystembausteinProps,
     TextEingabeProps,
 } from './typen';
 
@@ -224,6 +225,24 @@ export function StandardSchrittsteuerung({
                 <button type="button" className="pm-fb-knopf" onClick={weiter}>
                     Weiter
                 </button>
+            )}
+        </div>
+    );
+}
+
+/**
+ * Ein Baustein, den die Anwendung zeichnet.
+ *
+ * Bewusst als ruhiger, gestrichelter Kasten: er gehoert zum Formular, ist
+ * aber nichts, was hier eingestellt wird. Wer ihn fuer ein Feld haelt, sucht
+ * vergeblich nach seinen Einstellungen.
+ */
+export function StandardSystembaustein({ baustein }: SystembausteinProps) {
+    return (
+        <div className="pm-fb-system">
+            <div className="pm-fb-system__titel">{baustein.titel}</div>
+            {baustein.beschreibung && (
+                <p className="pm-fb-system__text">{baustein.beschreibung}</p>
             )}
         </div>
     );

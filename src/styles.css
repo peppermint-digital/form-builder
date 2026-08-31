@@ -465,3 +465,32 @@
     background: color-mix(in srgb, currentColor 12%, transparent);
     white-space: nowrap;
 }
+
+.pm-fb-system {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    padding: 0.625rem 0.75rem;
+    border: 1px dashed color-mix(in srgb, currentColor 30%, transparent);
+    border-radius: 0.5rem;
+}
+
+.pm-fb-system__titel {
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.pm-fb-system__text {
+    margin: 0;
+    font-size: 0.8125rem;
+    opacity: 0.75;
+}
+
+.pm-fb-knoten--system {
+    border-style: dashed;
+    opacity: 0.8;
+}
+
+.pm-fb-knoten__system {
+    font-style: italic;
+}

@@ -12,8 +12,12 @@ import {
     type Sichtbarkeit,
 } from '../core';
 import FormularFeldEingabe from './feld';
-import { StandardGruppe, StandardSchrittsteuerung } from './standard';
-import type { EigenerFeldTyp, KomponentenSatz } from './typen';
+import {
+    StandardGruppe,
+    StandardSchrittsteuerung,
+    StandardSystembaustein,
+} from './standard';
+import type { EigenerFeldTyp, KomponentenSatz, Systembaustein } from './typen';
 
 /** Was der Renderer ueber den Schrittstand nach aussen gibt. */
 export interface SchrittStand {
@@ -43,6 +47,13 @@ export interface FormularRendererProps {
     /** Meldung, wenn beim Weiterblaettern ein Pflichtfeld leer ist. */
     pflichtMeldung?: string;
     /**
+     * Bausteine, die die ANWENDUNG zeichnet — Terminauswahl, Workshops.
+     *
+     * Sie stehen nicht in der Definition und landen auch nie darin. Ohne sie
+     * zeigt die Vorschau weniger, als die Anmeldeseite am Ende hat.
+     */
+    systemBausteine?: Systembaustein[];
+    /**
      * Bekommt den Schrittstand und zeichnet, was darunter gehoert.
      *
      * Die Absende-Schaltflaeche gehoert der Anwendung, nicht dem Paket — aber
@@ -52,6 +63,8 @@ export interface FormularRendererProps {
      */
     children?: (stand: SchrittStand) => ReactNode;
 }
+
+const KEINE_BAUSTEINE: Systembaustein[] = [];
 
 /**
  * Zeichnet eine Formular-Definition — mehrspaltig, gruppiert, bedingt und
@@ -76,6 +89,7 @@ export default function FormularRenderer({
     idPrefix,
     autoFocusErstesFeld = false,
     pflichtMeldung = 'Bitte ausfüllen.',
+    systemBausteine = KEINE_BAUSTEINE,
     children,
 }: FormularRendererProps) {
     const [verlauf, setVerlauf] = useState<string[]>([]);
@@ -181,6 +195,7 @@ export default function FormularRenderer({
     };
 
     const Gruppe = komponenten?.Gruppe ?? StandardGruppe;
+    const Baustein = komponenten?.Systembaustein ?? StandardSystembaustein;
     const Schrittsteuerung =
         komponenten?.Schrittsteuerung ?? StandardSchrittsteuerung;
 
@@ -289,8 +304,19 @@ export default function FormularRenderer({
             ];
         });
 
+    // Nur auf der ERSTEN bzw. LETZTEN Seite. Auf jeder Seite wiederholt waeren
+    // sie eine Aufforderung, die Terminwahl mehrfach zu treffen.
+    const vorher = index === 0 ? systemBausteine.filter((b) => b.position === 'vorher') : [];
+    const nachher = schrittStand.istLetzter
+        ? systemBausteine.filter((b) => b.position === 'nachher')
+        : [];
+
     return (
         <div className="pm-fb-formular">
+            {vorher.map((baustein) => (
+                <Baustein key={baustein.id} baustein={baustein} />
+            ))}
+
             {mehrstufig && (aktuell.title || aktuell.description) && (
                 <div className="pm-fb-schritt__kopf">
                     {aktuell.title && (
@@ -303,6 +329,10 @@ export default function FormularRenderer({
             )}
 
             {zeichnen(aktuell.knoten, 'k')}
+
+            {nachher.map((baustein) => (
+                <Baustein key={baustein.id} baustein={baustein} />
+            ))}
 
             {mehrstufig && (
                 <Schrittsteuerung

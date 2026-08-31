@@ -6,11 +6,13 @@ export {
     KNOTENARTEN,
     RegelKnoten,
     SchrittKnoten,
+    SystemKnoten,
 } from './knoten';
 export type {
     FeldKnotenDaten,
     RahmenKnotenDaten,
     RegelKnotenDaten,
+    SystemKnotenDaten,
 } from './knoten';
 export {
     anordnungVergessen,

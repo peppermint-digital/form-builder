@@ -69,6 +69,32 @@ export interface AnkreuzProps extends Gemeinsam {
     onChange: (angekreuzt: boolean) => void;
 }
 
+/**
+ * Ein Baustein, den die ANWENDUNG zeichnet und nicht das Formular.
+ *
+ * Connect zeigt auf der Anmeldeseite mehr als die Formularfelder:
+ * Terminauswahl und Workshops kommen aus der Veranstaltung, nicht aus
+ * `form_config`. Im Baukasten fehlten sie deshalb — Aufbau und Vorschau
+ * zeigten ein unvollstaendiges Bild der Seite, die am Ende entsteht.
+ *
+ * Sie sind ANZEIGE und sonst nichts: nicht bearbeitbar, nicht in einen Rahmen
+ * zu legen, kein Ziel einer Bedingung, und sie landen NIE in `fields`. Sie
+ * haben keinen Datenschluessel — `ticket_type_id` steht in einer eigenen
+ * Spalte, `workshop_ids` in einer Beziehung. Ein Editor, der sie als Felder
+ * anlegt, erzeugt Namen, unter denen nie eine Antwort liegt.
+ */
+export interface Systembaustein {
+    id: string;
+    titel: string;
+    beschreibung?: string;
+    /** Ob er ueber oder unter dem Formular steht. */
+    position: 'vorher' | 'nachher';
+}
+
+export interface SystembausteinProps {
+    baustein: Systembaustein;
+}
+
 export interface GruppeProps {
     id: string;
     title?: string;
@@ -112,6 +138,7 @@ export interface HinweisProps {
 export interface KomponentenSatz {
     Text?: ComponentType<TextEingabeProps>;
     Gruppe?: ComponentType<GruppeProps>;
+    Systembaustein?: ComponentType<SystembausteinProps>;
     Schrittsteuerung?: ComponentType<SchrittsteuerungProps>;
     Mehrzeilig?: ComponentType<MehrzeiligProps>;
     Auswahl?: ComponentType<AuswahlProps>;

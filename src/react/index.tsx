@@ -14,6 +14,7 @@ export {
     StandardMehrzeilig,
     StandardOptionsgruppe,
     StandardSchrittsteuerung,
+    StandardSystembaustein,
     StandardText,
 } from './standard';
 export type {
@@ -29,5 +30,7 @@ export type {
     MehrzeiligProps,
     OptionsgruppeProps,
     SchrittsteuerungProps,
+    Systembaustein,
+    SystembausteinProps,
     TextEingabeProps,
 } from './typen';
