@@ -30,6 +30,32 @@ function flaeche(container: HTMLElement) {
  * Vorstellung. Das Aussehen gehoert vor ein echtes Auge.
  */
 describe('GraphEditor', () => {
+    /**
+     * React Flow faerbt seine Bedienknoepfe selbst und kennt den Umschalter
+     * der Anwendung nicht. Ohne durchgereichtes Farbschema stehen im dunklen
+     * Schema weisse Symbole auf weissem Grund: die Knoepfe sind da, nur
+     * unsichtbar — ein Fehler, den kein Test bemerkt, der nur Knoten zaehlt.
+     */
+    it('reicht das Farbschema an die Zeichenflaeche durch', () => {
+        const { container } = render(
+            <GraphEditor
+                definition={{ fields: [feld('vorname')] }}
+                onChange={() => {}}
+                farbschema="dark"
+            />,
+        );
+
+        expect(container.querySelector('.react-flow')?.className).toContain('dark');
+    });
+
+    it('bleibt ohne Angabe hell', () => {
+        const { container } = render(
+            <GraphEditor definition={{ fields: [feld('vorname')] }} onChange={() => {}} />,
+        );
+
+        expect(container.querySelector('.react-flow')?.className).not.toContain('dark');
+    });
+
     it('zeichnet je einen Knoten pro Feld, mit seinem Typ', () => {
         const { container } = render(
             <GraphEditor

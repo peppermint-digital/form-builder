@@ -87,6 +87,19 @@ export interface GraphEditorProps {
      * Definition.
      */
     systemBausteine?: Systembaustein[];
+    /**
+     * Helles oder dunkles Farbschema der Zeichenflaeche.
+     *
+     * React Flow bringt seine Bedienknoepfe (Zoom, Einpassen, Sperren) mit
+     * eigenen Farben mit und weiss nichts vom Farbschema der Anwendung. Ohne
+     * Angabe bleibt es hell — dann steht ein weisses Symbol auf weissem Grund,
+     * und die Knoepfe sind da, aber unsichtbar.
+     *
+     * Die ANWENDUNG entscheidet: sie kennt ihren Umschalter, das Paket nicht.
+     * `'system'` folgt der Einstellung des Betriebssystems und ist damit
+     * falsch, sobald die Anwendung einen eigenen Umschalter hat.
+     */
+    farbschema?: 'light' | 'dark' | 'system';
 }
 
 const KEINE_BAUSTEINE: Systembaustein[] = [];
@@ -126,6 +139,7 @@ function GraphEditorInhalt({
     hoehe = '600px',
     zusatzTypen = KEINE_TYPEN,
     systemBausteine = KEINE_BAUSTEINE,
+    farbschema = 'light',
 }: GraphEditorProps) {
     const { getIntersectingNodes } = useReactFlow();
 
@@ -584,6 +598,7 @@ function GraphEditorInhalt({
                         );
                     }}
                     nodeTypes={KNOTENARTEN}
+                    colorMode={farbschema}
                     fitView
                 >
                     <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
