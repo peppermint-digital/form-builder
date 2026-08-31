@@ -280,6 +280,17 @@ function GraphEditorInhalt({
     // den Fall im Paket, dieser Vergleich auch den in der Anwendung.
     const knotenSignatur = useMemo(() => signaturVon(gebaut), [gebaut]);
     const kantenSignatur = useMemo(() => JSON.stringify(gebauteKanten), [gebauteKanten]);
+    /**
+     * Knoten, an denen gerade wirklich gezogen wird.
+     *
+     * React Flow meldet `dimensions` auch dann, wenn es einen Knoten nur
+     * MISST — beim Oeffnen der Seite fuer jeden einzelnen. Wer darauf hin
+     * speichert, hat ein Formular mit ungespeicherten Aenderungen, bevor
+     * jemand etwas angefasst hat; der Hinweis darauf wird damit wertlos.
+     * Geschrieben wird deshalb nur, wenn vorher `resizing` gemeldet war.
+     */
+    const imZiehen = useRef<Set<string>>(new Set());
+
     const letzteKnoten = useRef<string | null>(null);
     const letzteKanten = useRef<string | null>(null);
 
@@ -331,11 +342,17 @@ function GraphEditorInhalt({
             // Der Resizer meldet waehrend des Ziehens laufend; gesichert wird
             // erst, wenn er losgelassen ist.
             for (const aenderung of aenderungen) {
-                if (
-                    aenderung.type !== 'dimensions' ||
-                    aenderung.resizing === true ||
-                    !aenderung.dimensions
-                ) {
+                if (aenderung.type !== 'dimensions' || !aenderung.dimensions) {
+                    continue;
+                }
+
+                if (aenderung.resizing === true) {
+                    imZiehen.current.add(aenderung.id);
+                    continue;
+                }
+
+                // Ohne vorheriges Ziehen ist das eine Messung, keine Groesse.
+                if (!imZiehen.current.delete(aenderung.id)) {
                     continue;
                 }
 
