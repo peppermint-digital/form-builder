@@ -151,6 +151,8 @@ function GraphEditorInhalt({
                 titel: knoten.titel,
                 feldTyp: knoten.feldTyp ?? '',
                 pflicht: knoten.pflicht ?? false,
+                spalte: knoten.spalte ?? 1,
+                spalten: knoten.spalten ?? 1,
                 mindestBreite: knoten.mindestBreite ?? 0,
                 mindestHoehe: knoten.mindestHoehe ?? 0,
                 ...(gesperrteFelder[knoten.ref]

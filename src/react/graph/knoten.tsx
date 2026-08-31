@@ -15,6 +15,9 @@ export interface FeldKnotenDaten extends Record<string, unknown> {
     pflicht: boolean;
     /** Gesetzt, wenn der Datenschluessel gesperrt ist — mit der Begruendung. */
     gesperrt?: string;
+    /** Die wievielte Spalte der Zeile, und wie viele es sind. */
+    spalte: number;
+    spalten: number;
 }
 
 export function FeldKnoten({ data, selected }: NodeProps) {
@@ -44,6 +47,18 @@ export function FeldKnoten({ data, selected }: NodeProps) {
 
             <div className="pm-fb-knoten__zeile">
                 <span className="pm-fb-knoten__typ">{daten.feldTyp}</span>
+
+                {/*
+                    Nur bei mehr als einer Spalte. Einspaltig ist der
+                    Normalfall — „1 von 1" an jedem Knoten waere Rauschen und
+                    wuerde genau die Auskunft verwaessern, um die es geht.
+                */}
+                {daten.spalten > 1 && (
+                    <span className="pm-fb-knoten__spalte">
+                        Spalte {daten.spalte} von {daten.spalten}
+                    </span>
+                )}
+
                 {daten.gesperrt && (
                     <span className="pm-fb-knoten__sperre" title={daten.gesperrt}>
                         gesperrt

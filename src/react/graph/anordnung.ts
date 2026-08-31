@@ -45,6 +45,16 @@ export interface GraphKnoten {
     mindestHoehe?: number;
     /** Nur bei `feld`: der Feldtyp, fuer die Beschriftung im Knoten. */
     feldTyp?: string;
+    /**
+     * Nur bei `feld`: die wievielte Spalte seiner Zeile, und wie viele es
+     * sind.
+     *
+     * Im Graphen ist die Zeilenzugehoerigkeit sonst nur an der Anordnung zu
+     * erkennen — und die ist Kosmetik. Wer einen Knoten verschiebt, verliert
+     * den Hinweis, obwohl sich an der Zeile nichts geaendert hat.
+     */
+    spalte?: number;
+    spalten?: number;
     /** Nur bei `feld`: ob das Feld laut Definition Pflicht ist. */
     pflicht?: boolean;
 }
@@ -116,8 +126,9 @@ export function knotenAusDefinition(
             if (eintrag.type === 'row') {
                 let spaltenX = x;
                 let zeilenHoehe = 0;
+                const spaltenZahl = eintrag.columns.length;
 
-                for (const spalte of eintrag.columns) {
+                for (const [spaltenIndex, spalte] of eintrag.columns.entries()) {
                     let spaltenY = y;
 
                     for (const feld of spalte) {
@@ -135,6 +146,8 @@ export function knotenAusDefinition(
                             titel: feld.label || feld.name,
                             feldTyp: feld.type,
                             pflicht: feld.required === true,
+                            spalte: spaltenIndex + 1,
+                            spalten: spaltenZahl,
                         });
 
                         spaltenY += MASSE.feldHoehe + MASSE.luecke;

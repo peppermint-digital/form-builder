@@ -255,3 +255,54 @@ describe('anordnungVergessen', () => {
         expect(anordnungVergessen(definition, 'feld:a')).not.toHaveProperty('graph');
     });
 });
+
+describe('Spaltigkeit am Knoten', () => {
+    it('nennt Spalte und Spaltenzahl bei einer mehrspaltigen Zeile', () => {
+        // Im Graphen ist die Zeilenzugehörigkeit sonst nur an der Anordnung
+        // zu erkennen — und die ist Kosmetik. Wer einen Knoten verschiebt,
+        // verliert den Hinweis, obwohl sich an der Zeile nichts geändert hat.
+        const knoten = knotenAusDefinition({
+            fields: [feld('a'), feld('b'), feld('c')],
+            layout: [{ type: 'row', columns: [['a'], ['b'], ['c']] }],
+        });
+
+        expect(knoten.map((k) => [k.ref, k.spalte, k.spalten])).toEqual([
+            ['a', 1, 3],
+            ['b', 2, 3],
+            ['c', 3, 3],
+        ]);
+    });
+
+    it('meldet auch die einspaltige Zeile — die Anzeige entscheidet, nicht die Anordnung', () => {
+        const knoten = knotenAusDefinition({ fields: [feld('a')] });
+
+        expect(knoten[0]!.spalte).toBe(1);
+        expect(knoten[0]!.spalten).toBe(1);
+    });
+
+    it('zählt je Zeile getrennt', () => {
+        const knoten = knotenAusDefinition({
+            fields: [feld('a'), feld('b'), feld('c')],
+            layout: [
+                { type: 'row', columns: [['a'], ['b']] },
+                { type: 'row', columns: [['c']] },
+            ],
+        });
+
+        expect(knoten.find((k) => k.ref === 'b')!.spalten).toBe(2);
+        expect(knoten.find((k) => k.ref === 'c')!.spalten).toBe(1);
+    });
+
+    it('zählt Felder untereinander in derselben Spalte gleich', () => {
+        // Eine Spalte kann mehrere Felder tragen — sie stehen dann
+        // untereinander, gehören aber zur selben Spalte.
+        const knoten = knotenAusDefinition({
+            fields: [feld('a'), feld('b'), feld('c')],
+            layout: [{ type: 'row', columns: [['a', 'b'], ['c']] }],
+        });
+
+        expect(knoten.find((k) => k.ref === 'a')!.spalte).toBe(1);
+        expect(knoten.find((k) => k.ref === 'b')!.spalte).toBe(1);
+        expect(knoten.find((k) => k.ref === 'c')!.spalte).toBe(2);
+    });
+});

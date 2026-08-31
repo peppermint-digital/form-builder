@@ -456,3 +456,12 @@
     border-radius: 0.5rem;
     background: Canvas;
 }
+
+.pm-fb-knoten__spalte {
+    /* Bewusst zurueckhaltend: die Auskunft zaehlt, sie soll den Feldnamen
+       aber nicht ueberstrahlen. */
+    padding: 0 0.25rem;
+    border-radius: 0.25rem;
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    white-space: nowrap;
+}
