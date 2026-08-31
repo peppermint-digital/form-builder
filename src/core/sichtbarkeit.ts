@@ -254,15 +254,31 @@ function regelTrifftZu(
     werte: Werte,
     sichtbareFelder: Set<string>,
 ): boolean {
-    if (regel.tests.length === 0) {
+    return pruefungenTreffen(regel.tests, regel.match, werte, sichtbareFelder);
+}
+
+/**
+ * Ob eine Menge Pruefungen zutrifft.
+ *
+ * Oeffentlich, weil auch die Ablaufkanten zwischen Schritten sie brauchen —
+ * und eine zweite Fassung derselben Vergleiche waere genau die Doppelung, die
+ * dieses Modul vermeiden soll.
+ */
+export function pruefungenTreffen(
+    pruefungen: Pruefung[],
+    verknuepfung: 'all' | 'any',
+    werte: Werte,
+    sichtbareFelder: Set<string>,
+): boolean {
+    if (pruefungen.length === 0) {
         return false;
     }
 
-    const treffer = regel.tests.map((pruefung) =>
+    const treffer = pruefungen.map((pruefung) =>
         pruefungTrifftZu(pruefung, werte, sichtbareFelder),
     );
 
-    return regel.match === 'any' ? treffer.some(Boolean) : treffer.every(Boolean);
+    return verknuepfung === 'any' ? treffer.some(Boolean) : treffer.every(Boolean);
 }
 
 function pruefungTrifftZu(

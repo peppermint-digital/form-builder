@@ -37,6 +37,15 @@ export interface FormularFeldEingabeProps {
      */
     idPrefix?: string;
     autoFocus?: boolean;
+    /**
+     * Ob dieses Feld JETZT Pflicht ist.
+     *
+     * Ohne Bedingungen ist das `feld.required`. Mit ihnen kann es abweichen:
+     * ein Feld, das nur bei einer bestimmten Antwort verlangt wird, traegt
+     * sonst dauerhaft den Pflicht-Stern — und der Besucher sucht nach einem
+     * Feld, das er gar nicht ausfuellen muss.
+     */
+    pflicht?: boolean;
 }
 
 /** Welchen HTML-Typ ein Feld bekommt. */
@@ -68,7 +77,9 @@ export default function FormularFeldEingabe({
     eigeneTypen = {},
     idPrefix = '',
     autoFocus = false,
+    pflicht,
 }: FormularFeldEingabeProps) {
+    const istPflicht = pflicht ?? feld.required === true;
     const id = `${idPrefix}${feld.name}`;
     const fehlerId = `${id}__fehler`;
     const hinweisId = `${id}__hinweis`;
@@ -90,7 +101,7 @@ export default function FormularFeldEingabe({
     const gemeinsam = {
         id,
         name: feld.name,
-        required: feld.required === true,
+        required: istPflicht,
         ...(beschrieben ? { 'aria-describedby': beschrieben } : {}),
         ...(fehler ? { 'aria-invalid': true as const } : {}),
     };
@@ -178,7 +189,7 @@ export default function FormularFeldEingabe({
     return (
         <div className="pm-fb-feld">
             {!labelImFeld && (
-                <Beschriftung htmlFor={id} required={feld.required === true}>
+                <Beschriftung htmlFor={id} required={istPflicht}>
                     {feld.label}
                 </Beschriftung>
             )}

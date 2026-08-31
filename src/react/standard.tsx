@@ -3,9 +3,11 @@ import type {
     AuswahlProps,
     BeschriftungProps,
     FehlerProps,
+    GruppeProps,
     HinweisProps,
     MehrzeiligProps,
     OptionsgruppeProps,
+    SchrittsteuerungProps,
     TextEingabeProps,
 } from './typen';
 
@@ -168,5 +170,61 @@ export function StandardHinweis({ id, children }: HinweisProps) {
         <p className="pm-fb-hinweis" id={id}>
             {children}
         </p>
+    );
+}
+
+/**
+ * Ein Rahmen um mehrere Felder.
+ *
+ * Ein `fieldset` mit `legend` und nicht ein `div` mit Ueberschrift: fuer einen
+ * Screenreader ist das der Unterschied zwischen „hier stehen ein paar Felder"
+ * und „diese Felder gehoeren zusammen, und zwar unter diesem Titel".
+ */
+export function StandardGruppe({ title, description, children }: GruppeProps) {
+    return (
+        <fieldset className="pm-fb-gruppe">
+            {title && <legend className="pm-fb-gruppe__titel">{title}</legend>}
+            {description && <p className="pm-fb-gruppe__text">{description}</p>}
+            {children}
+        </fieldset>
+    );
+}
+
+/**
+ * Zurueck, Weiter und der Zaehler dazwischen.
+ *
+ * `type="button"` an beiden Schaltflaechen ist kein Detail: in einem
+ * `<form>` ist ein Knopf ohne Typ ein Absende-Knopf. „Weiter" wuerde das
+ * halbe Formular abschicken.
+ */
+export function StandardSchrittsteuerung({
+    schritt,
+    anzahl,
+    istErster,
+    istLetzter,
+    weiter,
+    zurueck,
+}: SchrittsteuerungProps) {
+    return (
+        <div className="pm-fb-steuerung">
+            <button
+                type="button"
+                className="pm-fb-knopf"
+                onClick={zurueck}
+                disabled={istErster}
+            >
+                Zurück
+            </button>
+
+            <span className="pm-fb-steuerung__zaehler">
+                Schritt {schritt} von {anzahl}
+            </span>
+
+            {!istLetzter && (
+                <button type="button" className="pm-fb-knopf" onClick={weiter}>
+                    Weiter
+                </button>
+            )}
+        </div>
     );
 }

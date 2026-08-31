@@ -69,6 +69,23 @@ export interface AnkreuzProps extends Gemeinsam {
     onChange: (angekreuzt: boolean) => void;
 }
 
+export interface GruppeProps {
+    id: string;
+    title?: string;
+    description?: string;
+    children: ReactNode;
+}
+
+export interface SchrittsteuerungProps {
+    /** 1-basiert und nur ueber die SICHTBAREN Schritte gezaehlt. */
+    schritt: number;
+    anzahl: number;
+    istErster: boolean;
+    istLetzter: boolean;
+    weiter: () => void;
+    zurueck: () => void;
+}
+
 export interface BeschriftungProps {
     htmlFor: string;
     required: boolean;
@@ -94,6 +111,8 @@ export interface HinweisProps {
  */
 export interface KomponentenSatz {
     Text?: ComponentType<TextEingabeProps>;
+    Gruppe?: ComponentType<GruppeProps>;
+    Schrittsteuerung?: ComponentType<SchrittsteuerungProps>;
     Mehrzeilig?: ComponentType<MehrzeiligProps>;
     Auswahl?: ComponentType<AuswahlProps>;
     Optionsgruppe?: ComponentType<OptionsgruppeProps>;
