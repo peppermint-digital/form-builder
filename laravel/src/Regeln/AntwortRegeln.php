@@ -13,6 +13,10 @@ use Peppermint\FormBuilder\Data\FormularFeld;
  * jeder Aenderung am Baukasten nachziehen. Zwei Quellen fuer dieselbe Aussage
  * laufen immer auseinander; welche von beiden dann gilt, merkt man erst, wenn
  * jemand etwas abschickt, das nicht haette durchgehen duerfen.
+ *
+ * Wie streng die Regeln ausfallen, entscheidet `RegelEinstellungen`. Der Grund
+ * steht dort: eine Anwendung mit gewachsenem Bestand darf nicht dadurch
+ * strenger werden, dass sie die Regeln an einer Stelle zusammenfuehrt.
  */
 class AntwortRegeln
 {
@@ -22,12 +26,14 @@ class AntwortRegeln
     public static function fuer(
         FormularDefinition $definition,
         string $prefix = '',
+        ?RegelEinstellungen $einstellungen = null,
     ): array {
+        $einstellungen ??= new RegelEinstellungen;
         $regeln = [];
 
         foreach ($definition->felder as $feld) {
             $schluessel = $prefix === '' ? $feld->name : $prefix.'.'.$feld->name;
-            $regeln[$schluessel] = self::fuerFeld($feld);
+            $regeln[$schluessel] = self::fuerFeld($feld, $einstellungen);
         }
 
         return $regeln;
@@ -36,7 +42,7 @@ class AntwortRegeln
     /**
      * @return array<int, string>
      */
-    private static function fuerFeld(FormularFeld $feld): array
+    private static function fuerFeld(FormularFeld $feld, RegelEinstellungen $einstellungen): array
     {
         $regeln = [$feld->required ? 'required' : 'nullable'];
 
@@ -46,11 +52,15 @@ class AntwortRegeln
                 break;
 
             case 'number':
-                $regeln[] = 'numeric';
+                if ($einstellungen->typpruefung) {
+                    $regeln[] = 'numeric';
+                }
                 break;
 
             case 'date':
-                $regeln[] = 'date';
+                if ($einstellungen->typpruefung) {
+                    $regeln[] = 'date';
+                }
                 break;
 
             case 'checkbox':
@@ -60,10 +70,20 @@ class AntwortRegeln
                 // Pflicht-Ankreuzfeld mit `required` liesse '0' durchgehen —
                 // deshalb `accepted`, wenn es Pflicht ist.
                 if ($feld->required) {
-                    return ['accepted'];
+                    return $einstellungen->zustimmungErzwingen
+                        ? ['accepted']
+                        : ['required', 'in:0,1'];
                 }
 
                 $regeln[] = 'in:0,1';
+                break;
+
+            case 'textarea':
+                $regeln[] = 'string';
+
+                if ($einstellungen->maxFliesstext !== null) {
+                    $regeln[] = 'max:'.$einstellungen->maxFliesstext;
+                }
                 break;
 
             default:
@@ -79,7 +99,7 @@ class AntwortRegeln
         }
 
         if (in_array($feld->type, ['text', 'tel', 'email'], true)) {
-            $regeln[] = 'max:255';
+            $regeln[] = 'max:'.$einstellungen->maxText;
         }
 
         return $regeln;

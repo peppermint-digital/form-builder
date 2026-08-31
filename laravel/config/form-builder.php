@@ -60,4 +60,43 @@ return [
 
     'eigene_feldtypen' => [],
 
+    /*
+    |---------------------------------------------------------------------------
+    | Antwort-Regeln
+    |---------------------------------------------------------------------------
+    |
+    | Wie streng die aus der Definition abgeleiteten Validierungsregeln sein
+    | sollen. Die Vorgaben hier sind die STRENGEN — richtig fuer jede Anwendung,
+    | die den Baukasten von Anfang an einsetzt.
+    |
+    | Wer ihn nachtraeglich uebernimmt, hat einen Bestand: Formulare, die
+    | laufen, und Leute, die sich gerade darueber anmelden. Jede Regel, die
+    | schaerfer ist als das, was die Anwendung bisher akzeptiert hat, weist ab
+    | sofort Eingaben ab, die gestern durchgingen — und das faellt niemandem
+    | auf, bis sich jemand nicht anmelden kann.
+    |
+    | Deshalb: erst auf den eigenen Bestand stellen, dann einzeln nachziehen —
+    | und vor jedem Nachziehen messen, wie viele bestehende Antworten die
+    | schaerfere Regel treffen wuerde.
+    |
+    */
+
+    'antwortregeln' => [
+
+        // Laengengrenze fuer einzeilige Texte (text, tel, email).
+        'max_text' => 255,
+
+        // Laengengrenze fuer mehrzeilige Texte (textarea). `null` heisst
+        // unbegrenzt — dann ist die Datenbankspalte die einzige Grenze.
+        'max_fliesstext' => null,
+
+        // `number` als Zahl und `date` als Datum pruefen.
+        'typpruefung' => true,
+
+        // Ein Pflicht-Ankreuzfeld muss angekreuzt sein, nicht nur vorhanden.
+        // Ohne das gilt eine Zustimmung als erteilt, die niemand geklickt hat.
+        'zustimmung_erzwingen' => true,
+
+    ],
+
 ];

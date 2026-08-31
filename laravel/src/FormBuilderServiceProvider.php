@@ -5,6 +5,7 @@ namespace Peppermint\FormBuilder;
 use Illuminate\Support\ServiceProvider;
 use Peppermint\FormBuilder\Console\InstallCommand;
 use Peppermint\FormBuilder\Regeln\DefinitionPruefer;
+use Peppermint\FormBuilder\Regeln\RegelEinstellungen;
 
 class FormBuilderServiceProvider extends ServiceProvider
 {
@@ -18,6 +19,15 @@ class FormBuilderServiceProvider extends ServiceProvider
         $this->app->singleton(DefinitionPruefer::class, fn ($app): DefinitionPruefer => new DefinitionPruefer(
             pflichtfelder: $app['config']->get('form-builder.pflichtfelder', []),
             namensfelder: $app['config']->get('form-builder.namensfelder', []),
+        ));
+
+        // Ebenfalls aus der Konfiguration: wie streng die abgeleiteten
+        // Antwort-Regeln ausfallen. Eine Anwendung, die den Baukasten
+        // nachtraeglich uebernimmt, muss ihre bisherige Schaerfe abbilden
+        // koennen — sonst weist die Vereinheitlichung Eingaben ab, die
+        // gestern noch durchgingen.
+        $this->app->singleton(RegelEinstellungen::class, fn ($app): RegelEinstellungen => RegelEinstellungen::ausKonfiguration(
+            $app['config']->get('form-builder.antwortregeln', []),
         ));
     }
 
