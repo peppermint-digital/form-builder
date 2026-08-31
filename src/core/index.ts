@@ -4,11 +4,18 @@ export {
     feldAendern,
     feldEntfernen,
     feldHinzufuegen,
+    feldInRahmen,
     feldVerschieben,
     knotenEntfernen,
     layoutSicherstellen,
     MAX_SPALTEN,
+    naechsteRahmenkennung,
     naechsterFeldname,
+    rahmenAendern,
+    rahmenEntfernen,
+    rahmenHinzufuegen,
+    rahmenListe,
+    rahmenVonFeld,
     zeileVerschieben,
 } from './bearbeiten';
 export type { Ablageziel } from './bearbeiten';

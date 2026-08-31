@@ -238,14 +238,33 @@ export type AufgeloesterKnoten =
  *    der Rueckfall blind auf `columns` zu; ein Knoten ohne Spalten riss damit
  *    die ganze Seite mit, statt nur sich selbst.
  */
+export interface AufloesungsOptionen {
+    /**
+     * Leere Rahmen behalten.
+     *
+     * Fuer den EDITOR wahr, fuer das Formular falsch. Der Unterschied ist
+     * kein Detail: wer eine Gruppe anlegt, hat sie zuerst leer, und ein
+     * Rahmen, der erst beim ersten Feld erscheint, ist nicht zu bedienen. Im
+     * fertigen Formular waere derselbe Rahmen dagegen eine leere Umrandung
+     * mit Ueberschrift.
+     */
+    leereRahmenBehalten?: boolean;
+}
+
 export function layoutAufloesen(
     definition: FormularDefinition,
+    optionen: AufloesungsOptionen = {},
 ): AufgeloesterKnoten[] {
     const { fields } = definition;
     const nachName = new Map(fields.map((feld) => [feld.name, feld]));
     const verbraucht = new Set<string>();
 
-    const knoten = knotenAufloesen(definition.layout ?? [], nachName, verbraucht);
+    const knoten = knotenAufloesen(
+        definition.layout ?? [],
+        nachName,
+        verbraucht,
+        optionen,
+    );
 
     for (const feld of fields) {
         if (!verbraucht.has(feld.name)) {
@@ -260,6 +279,7 @@ function knotenAufloesen(
     liste: LayoutKnoten[],
     nachName: Map<string, FormularFeld>,
     verbraucht: Set<string>,
+    optionen: AufloesungsOptionen,
 ): AufgeloesterKnoten[] {
     const aufgeloest: AufgeloesterKnoten[] = [];
 
@@ -282,12 +302,17 @@ function knotenAufloesen(
                 Array.isArray(eintrag.children) ? eintrag.children : [],
                 nachName,
                 verbraucht,
+                optionen,
             );
 
             // Ein Rahmen ohne Inhalt ist im Formular eine Luecke, bei einem
             // Schritt sogar eine leere Seite mit Weiter-Schaltflaeche. Beides
             // entsteht, sobald jemand die Felder darin loescht.
-            if (children.length === 0) {
+            //
+            // Im Editor gilt das Gegenteil: dort ist ein frisch angelegter
+            // Rahmen immer leer, und einer, der erst beim ersten Feld
+            // erscheint, laesst sich nicht befuellen.
+            if (children.length === 0 && !optionen.leereRahmenBehalten) {
                 continue;
             }
 

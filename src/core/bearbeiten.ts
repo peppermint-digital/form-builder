@@ -1,7 +1,9 @@
 import type {
     FormularDefinition,
     FormularFeld,
+    LayoutGruppe,
     LayoutKnoten,
+    LayoutSchritt,
     LayoutZeile,
 } from './types';
 
@@ -15,6 +17,10 @@ export const MAX_SPALTEN = 3;
 export type Ablageziel =
     | { art: 'spalte'; zeile: number; position: number }
     | { art: 'neueZeile'; position: number };
+
+function istRahmen(knoten: LayoutKnoten): knoten is LayoutGruppe | LayoutSchritt {
+    return knoten.type === 'group' || knoten.type === 'step';
+}
 
 function istZeile(knoten: LayoutKnoten): knoten is LayoutZeile {
     return knoten.type === 'row';
@@ -72,7 +78,15 @@ export function naechsterFeldname(
 /** Entfernt einen Namen ueberall aus dem Layout und raeumt Leergewordenes auf. */
 function ausLayoutEntfernen(layout: LayoutKnoten[], name: string): LayoutKnoten[] {
     return layout
-        .map((knoten) => {
+        .map((knoten): LayoutKnoten => {
+            // In Rahmen hinabsteigen: ein Feld in einer Gruppe blieb sonst
+            // dort stehen, und ein Verschieben nach draussen legte es ein
+            // zweites Mal an. Sichtbar waere weiter das erste Vorkommen — die
+            // Bewegung sieht aus, als haette sie nicht stattgefunden.
+            if (istRahmen(knoten)) {
+                return { ...knoten, children: ausLayoutEntfernen(knoten.children, name) };
+            }
+
             if (!istZeile(knoten)) {
                 return knoten;
             }
@@ -83,7 +97,9 @@ function ausLayoutEntfernen(layout: LayoutKnoten[], name: string): LayoutKnoten[
 
             return { type: 'row' as const, columns };
         })
-        // Eine Zeile ohne Felder hinterliesse eine Luecke im Formular.
+        // Eine Zeile ohne Felder hinterliesse eine Luecke im Formular. Ein
+        // leerer RAHMEN bleibt dagegen stehen: ihn hat jemand angelegt, und
+        // er soll nicht verschwinden, weil man sein letztes Feld herauszieht.
         .filter((knoten) => !istZeile(knoten) || knoten.columns.length > 0);
 }
 
@@ -290,4 +306,226 @@ export function definitionBereinigen(
             };
         }),
     };
+}
+
+/**
+ * Die naechste freie Kennung fuer einen Rahmen.
+ *
+ * Ueber den GANZEN Baum gesucht, nicht nur auf oberster Ebene: eine Gruppe in
+ * einem Schritt traegt dieselbe Art von Kennung, und zwei gleiche waeren im
+ * Graphen ein Knoten.
+ */
+export function naechsteRahmenkennung(
+    definition: FormularDefinition,
+    praefix: 'g' | 's',
+): string {
+    const vergeben = new Set<string>();
+
+    const sammeln = (knoten: LayoutKnoten[]): void => {
+        for (const eintrag of knoten) {
+            if (istRahmen(eintrag)) {
+                vergeben.add(eintrag.id);
+                sammeln(eintrag.children);
+            }
+        }
+    };
+
+    sammeln(definition.layout ?? []);
+
+    let nummer = vergeben.size + 1;
+
+    while (vergeben.has(`${praefix}${nummer}`)) {
+        nummer++;
+    }
+
+    return `${praefix}${nummer}`;
+}
+
+/**
+ * Legt einen leeren Rahmen an.
+ *
+ * Leer, und das ist Absicht: wer eine Gruppe anlegt, weiss oft noch nicht,
+ * was hineinkommt. Damit sie trotzdem sichtbar ist, zeichnet der Editor
+ * leere Rahmen mit — das Formular laesst sie weg.
+ */
+export function rahmenHinzufuegen(
+    definition: FormularDefinition,
+    art: 'group' | 'step',
+    title: string,
+): FormularDefinition {
+    const gesichert = layoutSicherstellen(definition);
+    const id = naechsteRahmenkennung(gesichert, art === 'group' ? 'g' : 's');
+
+    const rahmen =
+        art === 'group'
+            ? ({ type: 'group', id, title, children: [] } satisfies LayoutGruppe)
+            : ({ type: 'step', id, title, children: [] } satisfies LayoutSchritt);
+
+    return { ...gesichert, layout: [...gesichert.layout, rahmen] };
+}
+
+/** Aendert Titel oder Beschreibung eines Rahmens. */
+export function rahmenAendern(
+    definition: FormularDefinition,
+    id: string,
+    aenderungen: { title?: string; description?: string },
+): FormularDefinition {
+    const gesichert = layoutSicherstellen(definition);
+
+    const gehen = (knoten: LayoutKnoten[]): LayoutKnoten[] =>
+        knoten.map((eintrag) => {
+            if (!istRahmen(eintrag)) {
+                return eintrag;
+            }
+
+            return eintrag.id === id
+                ? { ...eintrag, ...aenderungen }
+                : { ...eintrag, children: gehen(eintrag.children) };
+        });
+
+    return { ...gesichert, layout: gehen(gesichert.layout) };
+}
+
+/**
+ * Loest einen Rahmen auf — sein Inhalt rueckt eine Ebene nach aussen.
+ *
+ * Die Felder gehen NICHT mit. Ein Rahmen ist Darstellung, ein Feld ist ein
+ * Datenschluessel, unter dem Antworten liegen. Wer eine Gruppe wegnimmt, will
+ * die Gruppierung los sein und nicht die Angaben von hundert Leuten.
+ *
+ * Bedingungen, die auf den Rahmen zeigten, fallen mit ihm weg — sie haetten
+ * sonst ein Ziel, das es nicht mehr gibt, und wuerden still nie zutreffen.
+ */
+export function rahmenEntfernen(
+    definition: FormularDefinition,
+    id: string,
+): FormularDefinition {
+    const gesichert = layoutSicherstellen(definition);
+
+    const gehen = (knoten: LayoutKnoten[]): LayoutKnoten[] =>
+        knoten.flatMap((eintrag) => {
+            if (!istRahmen(eintrag)) {
+                return [eintrag];
+            }
+
+            return eintrag.id === id
+                ? eintrag.children
+                : [{ ...eintrag, children: gehen(eintrag.children) }];
+        });
+
+    const uebrig = (gesichert.conditions ?? []).filter(
+        (regel) => regel.target.ref !== id,
+    );
+
+    const naechste: FormularDefinition = { ...gesichert, layout: gehen(gesichert.layout) };
+
+    if (uebrig.length > 0) {
+        naechste.conditions = uebrig;
+    } else {
+        delete naechste.conditions;
+    }
+
+    return naechste;
+}
+
+/**
+ * Verschiebt ein Feld in einen Rahmen — oder mit `null` wieder heraus.
+ *
+ * Erst ueberall entfernen, dann einsetzen. Wer das umdreht, hat das Feld
+ * zweimal im Baum, und sichtbar bleibt das erste Vorkommen: die Bewegung
+ * sieht aus, als waere sie nicht passiert.
+ */
+export function feldInRahmen(
+    definition: FormularDefinition,
+    name: string,
+    rahmenId: string | null,
+): FormularDefinition {
+    const gesichert = layoutSicherstellen(definition);
+
+    if (!gesichert.fields.some((feld) => feld.name === name)) {
+        return definition;
+    }
+
+    const bereinigt = ausLayoutEntfernen(gesichert.layout, name);
+    const zeile: LayoutZeile = { type: 'row', columns: [[name]] };
+
+    if (rahmenId === null) {
+        return { ...gesichert, layout: [...bereinigt, zeile] };
+    }
+
+    let gefunden = false;
+
+    const gehen = (knoten: LayoutKnoten[]): LayoutKnoten[] =>
+        knoten.map((eintrag) => {
+            if (!istRahmen(eintrag)) {
+                return eintrag;
+            }
+
+            if (eintrag.id === rahmenId) {
+                gefunden = true;
+
+                return { ...eintrag, children: [...eintrag.children, zeile] };
+            }
+
+            return { ...eintrag, children: gehen(eintrag.children) };
+        });
+
+    const layout = gehen(bereinigt);
+
+    // Ein Rahmen, den es nicht gibt, darf das Feld nicht verschlucken.
+    return gefunden
+        ? { ...gesichert, layout }
+        : { ...gesichert, layout: [...bereinigt, zeile] };
+}
+
+/** In welchem Rahmen ein Feld liegt — `null`, wenn es frei steht. */
+export function rahmenVonFeld(
+    definition: FormularDefinition,
+    name: string,
+): string | null {
+    const gehen = (knoten: LayoutKnoten[], eltern: string | null): string | null => {
+        for (const eintrag of knoten) {
+            if (istRahmen(eintrag)) {
+                const treffer = gehen(eintrag.children, eintrag.id);
+
+                if (treffer !== null) {
+                    return treffer;
+                }
+
+                continue;
+            }
+
+            if (istZeile(eintrag) && eintrag.columns.flat().includes(name)) {
+                return eltern;
+            }
+        }
+
+        return null;
+    };
+
+    return gehen(definition.layout ?? [], null);
+}
+
+/** Alle Rahmen der Definition, fuer Auswahllisten im Editor. */
+export function rahmenListe(
+    definition: FormularDefinition,
+): Array<{ id: string; art: 'group' | 'step'; titel: string }> {
+    const aus: Array<{ id: string; art: 'group' | 'step'; titel: string }> = [];
+
+    const gehen = (knoten: LayoutKnoten[]): void => {
+        for (const eintrag of knoten) {
+            if (istRahmen(eintrag)) {
+                aus.push({
+                    id: eintrag.id,
+                    art: eintrag.type,
+                    titel: eintrag.title || (eintrag.type === 'group' ? 'Gruppe' : 'Schritt'),
+                });
+                gehen(eintrag.children);
+            }
+        }
+    };
+
+    gehen(definition.layout ?? []);
+
+    return aus;
 }

@@ -70,7 +70,9 @@ export function knotenAusDefinition(
     const gespeichert = definition.graph?.positions ?? {};
     const gebaut: GraphKnoten[] = [];
 
-    const aufgeloest = layoutAufloesen(definition);
+    // Mit leeren Rahmen: der Editor muss zeigen, was jemand gerade angelegt
+    // hat, auch bevor etwas darin liegt.
+    const aufgeloest = layoutAufloesen(definition, { leereRahmenBehalten: true });
 
     // Waagerecht nur, wenn es ueberhaupt Schritte gibt. Ein Bestandsformular
     // hat keine — und soll aussehen wie das Formular, das es ist.

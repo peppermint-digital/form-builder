@@ -18,7 +18,13 @@ import {
     feldAendern,
     feldEntfernen,
     feldHinzufuegen,
+    feldInRahmen,
     naechsterFeldname,
+    rahmenAendern,
+    rahmenEntfernen,
+    rahmenHinzufuegen,
+    rahmenListe,
+    rahmenVonFeld,
     sichtbarkeit,
     type FormularDefinition,
     type FormularFeld,
@@ -39,7 +45,7 @@ import {
     regelKnoten,
     verbindungVerarbeiten,
 } from './kanten';
-import { knotenRef, zielArtVon, type Knotenart } from './kennung';
+import { knotenId, knotenRef, zielArtVon, type Knotenart } from './kennung';
 import { KNOTENARTEN } from './knoten';
 
 /**
@@ -90,6 +96,8 @@ export default function GraphEditor({
     hoehe = '600px',
     zusatzTypen = KEINE_TYPEN,
 }: GraphEditorProps) {
+    // Die Knoten-Kennung mit Praefix, nicht der nackte Name: sonst waere
+    // eine Gruppe `g1` von einem Feld `g1` nicht zu unterscheiden.
     const [gewaehlt, setGewaehlt] = useState<string | null>(null);
     const gelesen = useMemo(() => definitionLesen(definition), [definition]);
     const zyklen = useMemo(() => sichtbarkeit(gelesen).zyklen, [gelesen]);
@@ -284,10 +292,44 @@ export default function GraphEditor({
         };
 
         onChange(feldHinzufuegen(gelesen, feld));
-        setGewaehlt(feld.name);
+        setGewaehlt(knotenId('feld', feld.name));
     }, [gelesen, onChange]);
 
-    const gewaehltesFeld = gelesen.fields.find((feld) => feld.name === gewaehlt);
+    const rahmen = useMemo(() => rahmenListe(gelesen), [gelesen]);
+    const bezug = gewaehlt ? knotenRef(gewaehlt) : null;
+
+    const gewaehltesFeld =
+        bezug?.art === 'feld'
+            ? gelesen.fields.find((feld) => feld.name === bezug.ref)
+            : undefined;
+
+    const gewaehlterRahmen =
+        bezug && (bezug.art === 'gruppe' || bezug.art === 'schritt')
+            ? rahmen.find((eintrag) => eintrag.id === bezug.ref)
+            : undefined;
+
+    const rahmenAnlegen = useCallback(
+        (art: 'group' | 'step') => {
+            const naechste = rahmenHinzufuegen(
+                gelesen,
+                art,
+                art === 'group' ? 'Neue Gruppe' : 'Neuer Schritt',
+            );
+
+            onChange(naechste);
+
+            const neue = rahmenListe(naechste).filter(
+                (eintrag) => !rahmen.some((alt) => alt.id === eintrag.id),
+            );
+
+            if (neue[0]) {
+                setGewaehlt(
+                    knotenId(art === 'group' ? 'gruppe' : 'schritt', neue[0].id),
+                );
+            }
+        },
+        [gelesen, onChange, rahmen],
+    );
 
     const anordnungZuruecksetzen = useCallback(() => {
         // Ohne `graph` faellt die Anordnung auf die abgeleitete zurueck — und
@@ -300,6 +342,22 @@ export default function GraphEditor({
             <div className="pm-fb-graph__leiste">
                 <button type="button" className="pm-fb-knopf" onClick={feldAnlegen}>
                     Feld hinzufügen
+                </button>
+
+                <button
+                    type="button"
+                    className="pm-fb-knopf"
+                    onClick={() => rahmenAnlegen('group')}
+                >
+                    Gruppe hinzufügen
+                </button>
+
+                <button
+                    type="button"
+                    className="pm-fb-knopf"
+                    onClick={() => rahmenAnlegen('step')}
+                >
+                    Schritt hinzufügen
                 </button>
 
                 <BedingungAnlegen
@@ -333,9 +391,15 @@ export default function GraphEditor({
                     onEdgesDelete={kantenEntfernt}
                     onConnect={verbinden}
                     onNodeClick={(_, knoten) => {
-                        const bezug = knotenRef(knoten.id);
+                        const angeklickt = knotenRef(knoten.id);
 
-                        setGewaehlt(bezug?.art === 'feld' ? bezug.ref : null);
+                        // Regelknoten haben ihre eigene Schaltflaeche; sie
+                        // brauchen keine Maske daneben.
+                        setGewaehlt(
+                            angeklickt && angeklickt.art !== 'regel'
+                                ? knoten.id
+                                : null,
+                        );
                     }}
                     nodeTypes={KNOTENARTEN}
                     fitView
@@ -357,6 +421,37 @@ export default function GraphEditor({
                             </button>
                         </div>
 
+                        {/*
+                            Wohin das Feld gehoert — als Auswahl und nicht per
+                            Ziehen. Ein Knoten in einen Rahmen zu ziehen aendert
+                            in React Flow nur die Anzeige; die Zugehoerigkeit
+                            steht im Layout, und die muss man benennen koennen.
+                        */}
+                        <label className="pm-fb-graph__feld">
+                            <span>Liegt in</span>
+                            <select
+                                value={rahmenVonFeld(gelesen, gewaehltesFeld.name) ?? ''}
+                                onChange={(e) =>
+                                    onChange(
+                                        feldInRahmen(
+                                            gelesen,
+                                            gewaehltesFeld.name,
+                                            e.target.value === '' ? null : e.target.value,
+                                        ),
+                                    )
+                                }
+                            >
+                                <option value="">Formular (kein Rahmen)</option>
+                                {rahmen.map((eintrag) => (
+                                    <option key={eintrag.id} value={eintrag.id}>
+                                        {eintrag.art === 'group' ? 'Gruppe' : 'Schritt'}
+                                        {': '}
+                                        {eintrag.titel}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+
                         <Feldmaske
                             feld={gewaehltesFeld}
                             onChange={(aenderungen) => {
@@ -365,7 +460,7 @@ export default function GraphEditor({
                                 );
 
                                 if (aenderungen.name) {
-                                    setGewaehlt(aenderungen.name);
+                                    setGewaehlt(knotenId('feld', aenderungen.name));
                                 }
                             }}
                             {...(gesperrteFelder[gewaehltesFeld.name]
@@ -392,6 +487,56 @@ export default function GraphEditor({
                                 Feld entfernen
                             </button>
                         )}
+                    </aside>
+                )}
+
+                {gewaehlterRahmen && (
+                    <aside className="pm-fb-graph__maske">
+                        <div className="pm-fb-knoten__zeile">
+                            <strong>
+                                {gewaehlterRahmen.art === 'group' ? 'Gruppe' : 'Schritt'}
+                            </strong>
+                            <button
+                                type="button"
+                                className="pm-fb-knopf pm-fb-knopf--still"
+                                onClick={() => setGewaehlt(null)}
+                            >
+                                Schließen
+                            </button>
+                        </div>
+
+                        <label className="pm-fb-graph__feld">
+                            <span>Titel</span>
+                            <input
+                                className="pm-fb-eingabe"
+                                value={gewaehlterRahmen.titel}
+                                onChange={(e) =>
+                                    onChange(
+                                        rahmenAendern(gelesen, gewaehlterRahmen.id, {
+                                            title: e.target.value,
+                                        }),
+                                    )
+                                }
+                            />
+                        </label>
+
+                        {/*
+                            „Auflösen" und nicht „Löschen": der Inhalt rückt
+                            eine Ebene nach außen. Ein Rahmen ist Darstellung,
+                            ein Feld ist ein Datenschlüssel — wer die Gruppe
+                            wegnimmt, will die Gruppierung los sein und nicht
+                            die Angaben der Leute darin.
+                        */}
+                        <button
+                            type="button"
+                            className="pm-fb-knopf pm-fb-knopf--gefahr"
+                            onClick={() => {
+                                onChange(rahmenEntfernen(gelesen, gewaehlterRahmen.id));
+                                setGewaehlt(null);
+                            }}
+                        >
+                            Rahmen auflösen (Felder bleiben)
+                        </button>
                     </aside>
                 )}
             </div>
