@@ -254,37 +254,36 @@ function GraphEditorInhalt({
         (aenderungen: NodeChange[]) => {
             onKnotenChange(aenderungen);
 
-            // Erst beim Loslassen sichern, nicht bei jedem Pixel: sonst
-            // schreibt ein einziges Ziehen hunderte Aenderungen in die
-            // Definition, und ein „ungespeichert"-Hinweis flackert dauerhaft.
-            const losgelassen = aenderungen.some(
-                (aenderung) =>
-                    aenderung.type === 'position' && aenderung.dragging === false,
-            );
-
-            if (losgelassen) {
-                setKnoten((stand) => {
-                    positionenSichern(stand);
-
-                    return stand;
-                });
-            }
+            // Positionen werden hier NICHT gesichert. Beim Loslassen feuern
+            // `onNodesChange` und `onNodeDragStop` beide — zwei Schreiber auf
+            // dasselbe `graph`, jeder mit seinem eigenen Stand. Der zweite
+            // ueberschrieb den ersten, die Definition aenderte sich erneut,
+            // und der Editor drehte sich fest. Gesichert wird ausschliesslich
+            // in `abgelegt`.
 
             // Der Resizer meldet waehrend des Ziehens laufend; gesichert wird
             // erst, wenn er losgelassen ist.
             for (const aenderung of aenderungen) {
                 if (
-                    aenderung.type === 'dimensions' &&
-                    aenderung.resizing === false &&
-                    aenderung.dimensions
+                    aenderung.type !== 'dimensions' ||
+                    aenderung.resizing === true ||
+                    !aenderung.dimensions
                 ) {
-                    onChange(
-                        groesseSchreiben(gelesen, aenderung.id, {
-                            breite: aenderung.dimensions.width,
-                            hoehe: aenderung.dimensions.height,
-                        }),
-                    );
+                    continue;
                 }
+
+                const bisher = gelesen.graph?.sizes?.[aenderung.id];
+                const breite = Math.round(aenderung.dimensions.width);
+                const hoehe = Math.round(aenderung.dimensions.height);
+
+                // Nur bei echter Abweichung schreiben. React Flow meldet auch
+                // nach dem Messen — und ein Schreiben, das eine neue Messung
+                // ausloest, laeuft im Kreis.
+                if (bisher?.breite === breite && bisher?.hoehe === hoehe) {
+                    continue;
+                }
+
+                onChange(groesseSchreiben(gelesen, aenderung.id, { breite, hoehe }));
             }
         },
         [gelesen, onChange, onKnotenChange, positionenSichern, setKnoten],
@@ -303,7 +302,14 @@ function GraphEditorInhalt({
         (_: unknown, bewegt: Node) => {
             const bezug = knotenRef(bewegt.id);
 
+            // Nur die Anordnung merken — Rahmen ordnen sich nicht zu.
             if (bezug?.art !== 'feld') {
+                setKnoten((stand) => {
+                    positionenSichern(stand);
+
+                    return stand;
+                });
+
                 return;
             }
 
@@ -349,7 +355,14 @@ function GraphEditorInhalt({
 
             const ziel = treffer[0] ? knotenRef(treffer[0].id)?.ref ?? null : null;
 
+            // Nichts gewechselt: dann ist nur die Anordnung neu.
             if (rahmenVonFeld(gelesen, bezug.ref) === ziel) {
+                setKnoten((stand) => {
+                    positionenSichern(stand);
+
+                    return stand;
+                });
+
                 return;
             }
 
@@ -361,7 +374,7 @@ function GraphEditorInhalt({
                 anordnungVergessen(feldInRahmen(gelesen, bezug.ref, ziel), bewegt.id),
             );
         },
-        [gelesen, getIntersectingNodes, onChange],
+        [gelesen, getIntersectingNodes, onChange, positionenSichern, setKnoten],
     );
 
     const verbinden = useCallback(
