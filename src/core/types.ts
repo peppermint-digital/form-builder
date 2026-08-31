@@ -83,7 +83,139 @@ export interface LayoutAbschnitt {
     description?: string;
 }
 
-export type LayoutKnoten = LayoutZeile | LayoutAbschnitt;
+/**
+ * Ein Rahmen um mehrere Knoten.
+ *
+ * Anders als `LayoutAbschnitt`, der nur eine Ueberschrift IN die Reihenfolge
+ * setzt, haelt eine Gruppe ihren Inhalt: sie laesst sich als Ganzes ein- und
+ * ausblenden, und im Knoten-Editor ist sie ein aufziehbarer Rahmen.
+ *
+ * `id` ist NICHT der Datenschluessel — Gruppen speichern nichts. Sie ist da,
+ * damit eine Bedingung auf die Gruppe zeigen kann statt auf jedes Feld darin.
+ */
+export interface LayoutGruppe {
+    type: 'group';
+    id: string;
+    title?: string;
+    description?: string;
+    children: LayoutKnoten[];
+}
+
+/**
+ * Eine Seite des Formulars.
+ *
+ * Schritte sind gewoehnliche Layout-Knoten und keine zweite Liste neben
+ * `layout`. Das ist der springende Punkt: gaebe es `steps` UND `layout`,
+ * muesste an jeder Leseseite entschieden werden, welches von beiden gilt —
+ * und die Antwort fiele verschieden aus.
+ *
+ * Ein Formular ist mehrstufig, sobald irgendwo auf oberster Ebene ein Schritt
+ * steht. Steht keiner da, ist alles eine Seite; genau die Darstellung von vor
+ * dieser Ebene, damit Bestandsformulare unveraendert weiterlaufen.
+ */
+export interface LayoutSchritt {
+    type: 'step';
+    id: string;
+    title?: string;
+    description?: string;
+    children: LayoutKnoten[];
+}
+
+export type LayoutKnoten =
+    | LayoutZeile
+    | LayoutAbschnitt
+    | LayoutGruppe
+    | LayoutSchritt;
+
+/**
+ * Wie ein gespeicherter Wert mit einem Vergleichswert verglichen wird.
+ *
+ * Bewusst wenige und bewusst als Zeichenketten gespeichert: die Antworten
+ * liegen als JSON neben lauter Texten, ein Ankreuzfeld kommt als '1' oder '0'
+ * an. Ein Vergleich, der Typen voraussetzt, die es dort nicht gibt, ist eine
+ * Regel, die im Editor plausibel aussieht und im Formular nie zutrifft.
+ */
+export type Vergleich =
+    | 'is'
+    | 'is_not'
+    | 'contains'
+    | 'not_contains'
+    | 'filled'
+    | 'empty'
+    | 'gt'
+    | 'lt';
+
+export interface Pruefung {
+    /** Der DATENSCHLUESSEL des gepruefeten Feldes (`feld.name`), nicht `feld.id`. */
+    field: string;
+    op: Vergleich;
+    /** Fehlt bei `filled` und `empty` — dort gibt es nichts zu vergleichen. */
+    value?: string;
+}
+
+/**
+ * Worauf eine Bedingung wirkt.
+ *
+ * `kind: 'field'` zeigt auf `feld.name`, `'group'` und `'step'` auf deren `id`.
+ * Die beiden Namensraeume sind getrennt, deshalb steht die Art dabei — sonst
+ * traefe eine Regel bei gleichlautenden Kennungen das Falsche.
+ */
+export interface Bedingungsziel {
+    kind: 'field' | 'group' | 'step';
+    ref: string;
+}
+
+/**
+ * Was mit dem Ziel geschieht, wenn die Pruefungen zutreffen.
+ *
+ * `require`/`optional` gibt es neben `show`/`hide`, weil „nur dann Pflicht"
+ * etwas anderes ist als „nur dann sichtbar": ein Feld kann sichtbar und
+ * freiwillig sein.
+ */
+export type Wirkung = 'show' | 'hide' | 'require' | 'optional';
+
+export interface Bedingungsregel {
+    id: string;
+    target: Bedingungsziel;
+    effect: Wirkung;
+    /** `all` = alle Pruefungen (UND), `any` = mindestens eine (ODER). */
+    match: 'all' | 'any';
+    tests: Pruefung[];
+}
+
+/**
+ * Ein Weg von einem Schritt zum naechsten.
+ *
+ * Ohne `tests` ist die Kante der unbedingte Weg — der Rueckfall, wenn keine
+ * bedingte Kante zutrifft. Ein Schritt ohne ausgehende Kante ist der letzte.
+ */
+export interface Ablaufkante {
+    id: string;
+    /** `id` des Schritts, von dem der Weg ausgeht. */
+    from: string;
+    /** `id` des Schritts, zu dem er fuehrt. */
+    to: string;
+    match?: 'all' | 'any';
+    tests?: Pruefung[];
+}
+
+export interface Knotenposition {
+    x: number;
+    y: number;
+}
+
+/**
+ * Wie der Knoten-Editor die Definition anordnet.
+ *
+ * Reine Kosmetik, und zwar mit Absicht: eine Definition ohne `graph` muss
+ * vollstaendig funktionieren. Waeren die Positionen noetig, waere der Graph
+ * ein zweites Format neben `layout` — und ein Formular, das nur ueber den
+ * Knoten-Editor entstehen kann.
+ */
+export interface GraphDarstellung {
+    /** Kennung → Position. Feldnamen, Gruppen-, Schritt- und Regel-Kennungen. */
+    positions?: Record<string, Knotenposition>;
+}
 
 /**
  * Eine vollstaendige Formular-Definition.
@@ -96,6 +228,22 @@ export type LayoutKnoten = LayoutZeile | LayoutAbschnitt;
 export interface FormularDefinition {
     fields: FormularFeld[];
     layout?: LayoutKnoten[];
+
+    /**
+     * Sichtbarkeits- und Pflichtregeln.
+     *
+     * Bewusst Daten in der Definition und nicht im Graphen: der Knoten-Editor
+     * ist eine ANSICHT hierauf. Laege die Wahrheit im Graphen, gaebe es eine
+     * dritte Quelle neben `fields` und `layout` — und ein Formular, das sich
+     * nur mit dem Graphen lesen liesse.
+     */
+    conditions?: Bedingungsregel[];
+
+    /** Verzweigungen zwischen Schritten. Ohne Schritte bedeutungslos. */
+    flow?: Ablaufkante[];
+
+    /** Nur Anordnung. Fehlt sie, funktioniert alles unveraendert. */
+    graph?: GraphDarstellung;
 }
 
 /**

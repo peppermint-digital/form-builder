@@ -30,13 +30,17 @@ function istZeile(knoten: LayoutKnoten): knoten is LayoutZeile {
  */
 export function layoutSicherstellen(
     definition: FormularDefinition,
-): Required<FormularDefinition> {
+): FormularDefinition & { layout: LayoutKnoten[] } {
+    // Durchreichen statt neu zusammensetzen: `conditions`, `flow` und `graph`
+    // haengen an derselben Definition. Wurden hier nur `fields` und `layout`
+    // uebernommen, verlor jeder Editor-Handgriff die Bedingungen — lautlos,
+    // denn ein Formular ohne Bedingungen sieht aus wie ein richtiges.
     if (definition.layout && definition.layout.length > 0) {
-        return { fields: definition.fields, layout: definition.layout };
+        return { ...definition, layout: definition.layout };
     }
 
     return {
-        fields: definition.fields,
+        ...definition,
         layout: definition.fields.map((feld) => ({
             type: 'row' as const,
             columns: [[feld.name]],

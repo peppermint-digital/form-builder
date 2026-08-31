@@ -1,9 +1,13 @@
 import type {
+    Ablaufkante,
+    Bedingungsregel,
     FormularDefinition,
     FormularFeld,
     LayoutKnoten,
     LayoutZeile,
+    Pruefung,
     RoheDefinition,
+    Vergleich,
 } from './types';
 
 /**
@@ -26,7 +30,109 @@ export function definitionLesen(roh: RoheDefinition): FormularDefinition {
     const fields = Array.isArray(roh.fields) ? roh.fields.filter(istFeld) : [];
     const layout = Array.isArray(roh.layout) ? roh.layout : undefined;
 
-    return layout ? { fields, layout } : { fields };
+    // Die drei neuen Schluessel muessen HIER durchgereicht werden.
+    //
+    // Der Editor liest die gespeicherte Definition durch diese Funktion und
+    // schreibt spaeter zurueck, was er haelt. Wuerde hier ein Objekt aus nur
+    // `fields` und `layout` gebaut, waeren die Bedingungen nach dem naechsten
+    // Speichern weg — und zwar unbemerkt: ein Formular ohne Bedingungen sieht
+    // aus wie ein Formular, bei dem nie welche eingestellt waren.
+    const conditions = Array.isArray(roh.conditions)
+        ? roh.conditions.filter(istBedingungsregel)
+        : undefined;
+    const flow = Array.isArray(roh.flow)
+        ? roh.flow.filter(istAblaufkante)
+        : undefined;
+    const graph =
+        typeof roh.graph === 'object' && roh.graph !== null ? roh.graph : undefined;
+
+    return {
+        fields,
+        ...(layout ? { layout } : {}),
+        ...(conditions && conditions.length > 0 ? { conditions } : {}),
+        ...(flow && flow.length > 0 ? { flow } : {}),
+        ...(graph ? { graph } : {}),
+    };
+}
+
+const VERGLEICHE: readonly Vergleich[] = [
+    'is',
+    'is_not',
+    'contains',
+    'not_contains',
+    'filled',
+    'empty',
+    'gt',
+    'lt',
+];
+
+function textGefuellt(wert: unknown): wert is string {
+    return typeof wert === 'string' && wert !== '';
+}
+
+function istPruefung(kandidat: unknown): kandidat is Pruefung {
+    if (typeof kandidat !== 'object' || kandidat === null) {
+        return false;
+    }
+
+    const pruefung = kandidat as Pruefung;
+
+    return (
+        textGefuellt(pruefung.field) &&
+        VERGLEICHE.includes(pruefung.op)
+    );
+}
+
+/**
+ * Anders als beim Layout wird hier streng gefiltert.
+ *
+ * Beim Layout waere das falsch — dort liegt ein gewachsener Bestand, und eine
+ * zu enge Pruefung wuerde bestehende Formulare leerraeumen. Bedingungen sind
+ * neu: es gibt keinen Bestand, den eine strenge Pruefung treffen koennte.
+ * Eine halbe Regel dagegen ist gefaehrlich — sie entscheidet ueber
+ * Sichtbarkeit, und was sie bei fehlenden Angaben tut, waere Zufall.
+ */
+function istBedingungsregel(kandidat: unknown): kandidat is Bedingungsregel {
+    if (typeof kandidat !== 'object' || kandidat === null) {
+        return false;
+    }
+
+    const regel = kandidat as Bedingungsregel;
+
+    return (
+        textGefuellt(regel.id) &&
+        typeof regel.target === 'object' &&
+        regel.target !== null &&
+        ['field', 'group', 'step'].includes(regel.target.kind) &&
+        textGefuellt(regel.target.ref) &&
+        ['show', 'hide', 'require', 'optional'].includes(regel.effect) &&
+        ['all', 'any'].includes(regel.match) &&
+        Array.isArray(regel.tests) &&
+        regel.tests.length > 0 &&
+        regel.tests.every(istPruefung)
+    );
+}
+
+function istAblaufkante(kandidat: unknown): kandidat is Ablaufkante {
+    if (typeof kandidat !== 'object' || kandidat === null) {
+        return false;
+    }
+
+    const kante = kandidat as Ablaufkante;
+
+    if (
+        !textGefuellt(kante.id) ||
+        !textGefuellt(kante.from) ||
+        !textGefuellt(kante.to)
+    ) {
+        return false;
+    }
+
+    // Ohne Pruefungen ist die Kante der unbedingte Weg — das ist gueltig und
+    // der haeufigste Fall.
+    return kante.tests === undefined
+        ? true
+        : Array.isArray(kante.tests) && kante.tests.every(istPruefung);
 }
 
 function istFeld(kandidat: unknown): kandidat is FormularFeld {
@@ -88,24 +194,49 @@ export interface AufgeloesterAbschnitt {
     description?: string;
 }
 
-export type AufgeloesterKnoten = AufgeloesteZeile | AufgeloesterAbschnitt;
+export interface AufgeloesteGruppe {
+    type: 'group';
+    id: string;
+    title?: string;
+    description?: string;
+    children: AufgeloesterKnoten[];
+}
+
+export interface AufgeloesterSchrittknoten {
+    type: 'step';
+    id: string;
+    title?: string;
+    description?: string;
+    children: AufgeloesterKnoten[];
+}
+
+export type AufgeloesterKnoten =
+    | AufgeloesteZeile
+    | AufgeloesterAbschnitt
+    | AufgeloesteGruppe
+    | AufgeloesterSchrittknoten;
 
 /**
  * Uebersetzt Definition und Layout in das, was gerendert wird.
  *
- * Vier Regeln, jede davon gegen einen konkreten Ausfall:
+ * Fuenf Regeln, jede davon gegen einen konkreten Ausfall:
  *
  * 1. **Kein Layout** → alles einspaltig in der Reihenfolge von `fields`. Genau
  *    die Darstellung von vor der Layout-Ebene, damit Bestandsformulare ohne
  *    Migration weiterlaufen.
  * 2. **Feld in `fields`, aber in keiner Spalte** → hinten anhaengen. Ein Feld
  *    darf niemals unsichtbar werden, nur weil das Layout es nicht kennt; sonst
- *    verschwindet ein Pflichtfeld lautlos aus dem Formular.
+ *    verschwindet ein Pflichtfeld lautlos aus dem Formular. Gilt auch bei
+ *    Schritten: das Feld landet dann auf der letzten Seite, nicht nirgends.
  * 3. **Spalte verweist auf einen unbekannten Namen** → ueberspringen. Passiert
  *    nach jedem Loeschen eines Feldes.
  * 4. **Derselbe Name mehrfach im Layout** → nur das erste Vorkommen. Zwei
  *    Eingabefelder auf denselben Datenschluessel wuerden sich gegenseitig
- *    ueberschreiben, und welches gewinnt, waere Zufall.
+ *    ueberschreiben, und welches gewinnt, waere Zufall. Der Zaehler laeuft
+ *    ueber den GANZEN Baum, nicht je Gruppe.
+ * 5. **Knoten, mit dem hier niemand rechnet** → ueberspringen. Vorher griff
+ *    der Rueckfall blind auf `columns` zu; ein Knoten ohne Spalten riss damit
+ *    die ganze Seite mit, statt nur sich selbst.
  */
 export function layoutAufloesen(
     definition: FormularDefinition,
@@ -114,11 +245,31 @@ export function layoutAufloesen(
     const nachName = new Map(fields.map((feld) => [feld.name, feld]));
     const verbraucht = new Set<string>();
 
-    const knoten: AufgeloesterKnoten[] = [];
+    const knoten = knotenAufloesen(definition.layout ?? [], nachName, verbraucht);
 
-    for (const eintrag of definition.layout ?? []) {
-        if (istAbschnitt(eintrag)) {
-            knoten.push({
+    for (const feld of fields) {
+        if (!verbraucht.has(feld.name)) {
+            knoten.push({ type: 'row', columns: [[feld]] });
+        }
+    }
+
+    return knoten;
+}
+
+function knotenAufloesen(
+    liste: LayoutKnoten[],
+    nachName: Map<string, FormularFeld>,
+    verbraucht: Set<string>,
+): AufgeloesterKnoten[] {
+    const aufgeloest: AufgeloesterKnoten[] = [];
+
+    for (const eintrag of liste) {
+        if (typeof eintrag !== 'object' || eintrag === null) {
+            continue;
+        }
+
+        if (eintrag.type === 'section') {
+            aufgeloest.push({
                 type: 'section',
                 title: eintrag.title,
                 ...(eintrag.description ? { description: eintrag.description } : {}),
@@ -126,9 +277,37 @@ export function layoutAufloesen(
             continue;
         }
 
-        const columns = eintrag.columns
+        if (eintrag.type === 'group' || eintrag.type === 'step') {
+            const children = knotenAufloesen(
+                Array.isArray(eintrag.children) ? eintrag.children : [],
+                nachName,
+                verbraucht,
+            );
+
+            // Ein Rahmen ohne Inhalt ist im Formular eine Luecke, bei einem
+            // Schritt sogar eine leere Seite mit Weiter-Schaltflaeche. Beides
+            // entsteht, sobald jemand die Felder darin loescht.
+            if (children.length === 0) {
+                continue;
+            }
+
+            aufgeloest.push({
+                type: eintrag.type,
+                id: eintrag.id,
+                ...(eintrag.title ? { title: eintrag.title } : {}),
+                ...(eintrag.description ? { description: eintrag.description } : {}),
+                children,
+            });
+            continue;
+        }
+
+        if (!Array.isArray((eintrag as LayoutZeile).columns)) {
+            continue;
+        }
+
+        const columns = (eintrag as LayoutZeile).columns
             .map((spalte) =>
-                spalte
+                (Array.isArray(spalte) ? spalte : [])
                     .filter((name) => {
                         if (verbraucht.has(name) || !nachName.has(name)) {
                             return false;
@@ -144,37 +323,99 @@ export function layoutAufloesen(
         // Eine Zeile, deren Felder alle geloescht wurden, hinterlaesst sonst
         // eine Luecke im Formular.
         if (columns.length > 0) {
-            knoten.push({ type: 'row', columns });
+            aufgeloest.push({ type: 'row', columns });
         }
     }
 
-    const uebrig = fields.filter((feld) => !verbraucht.has(feld.name));
-
-    for (const feld of uebrig) {
-        knoten.push({ type: 'row', columns: [[feld]] });
-    }
-
-    return knoten;
+    return aufgeloest;
 }
 
-function istAbschnitt(
-    knoten: LayoutKnoten,
-): knoten is Extract<LayoutKnoten, { type: 'section' }> {
-    return knoten.type === 'section';
+/** Ein Schritt mit seinem aufgeloesten Inhalt. */
+export interface AufgeloesterSchritt {
+    id: string;
+    title?: string;
+    description?: string;
+    knoten: AufgeloesterKnoten[];
+    /**
+     * Wahr, wenn dieser Schritt nicht in der Definition stand.
+     *
+     * Ein einstufiges Formular bekommt hier einen impliziten Schritt, damit
+     * die Zeichenseite nur EINEN Fall kennt. Sie darf ihn aber nicht
+     * beschriften oder eine Fortschrittsanzeige daraus bauen — sonst
+     * verwandelt sich jedes bestehende Formular in „Schritt 1 von 1".
+     */
+    implizit?: boolean;
+}
+
+/**
+ * Die Seiten des Formulars, in Reihenfolge.
+ *
+ * Steht auf oberster Ebene kein Schritt, ist alles EIN impliziter Schritt —
+ * die Darstellung von vor dieser Ebene.
+ *
+ * Ein loser Knoten neben Schritten faellt an den zuletzt eroeffneten Schritt;
+ * steht er vor dem ersten, entsteht ein impliziter Schritt davor. Das ist
+ * bewusst tolerant statt streng: ein Knoten, den niemand einer Seite
+ * zugeordnet hat, verschwindet sonst aus dem Formular, ohne dass etwas
+ * fehlschlaegt.
+ */
+export function schritteAufloesen(
+    definition: FormularDefinition,
+): AufgeloesterSchritt[] {
+    const knoten = layoutAufloesen(definition);
+
+    if (!knoten.some((eintrag) => eintrag.type === 'step')) {
+        return [{ id: 'schritt-1', knoten, implizit: true }];
+    }
+
+    const schritte: AufgeloesterSchritt[] = [];
+
+    for (const eintrag of knoten) {
+        if (eintrag.type === 'step') {
+            schritte.push({
+                id: eintrag.id,
+                ...(eintrag.title ? { title: eintrag.title } : {}),
+                ...(eintrag.description ? { description: eintrag.description } : {}),
+                knoten: eintrag.children,
+            });
+            continue;
+        }
+
+        if (schritte.length === 0) {
+            schritte.push({ id: 'schritt-1', knoten: [], implizit: true });
+        }
+
+        schritte[schritte.length - 1]!.knoten.push(eintrag);
+    }
+
+    return schritte;
 }
 
 /**
  * Alle Felder eines Layouts in Anzeigereihenfolge.
  *
  * Fuer alles, was die Felder braucht, aber nicht die Zeilen: Validierung,
- * Vorbefuellung, Export.
+ * Vorbefuellung, Export. Steigt in Gruppen und Schritte hinab — ein Feld in
+ * einer Gruppe ist ein Feld des Formulars.
  */
 export function felderInReihenfolge(
     definition: FormularDefinition,
 ): FormularFeld[] {
-    return layoutAufloesen(definition)
-        .filter((knoten): knoten is AufgeloesteZeile => knoten.type === 'row')
-        .flatMap((zeile) => zeile.columns.flat());
+    return felderAusKnoten(layoutAufloesen(definition));
+}
+
+function felderAusKnoten(knoten: AufgeloesterKnoten[]): FormularFeld[] {
+    return knoten.flatMap((eintrag) => {
+        if (eintrag.type === 'row') {
+            return eintrag.columns.flat();
+        }
+
+        if (eintrag.type === 'group' || eintrag.type === 'step') {
+            return felderAusKnoten(eintrag.children);
+        }
+
+        return [];
+    });
 }
 
 /** Das Gegenstueck zu `layoutAufloesen` fuer den Editor. */
