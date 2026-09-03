@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    feldEigeneZeile,
     feldInRahmen,
     feldNebenFeld,
     rahmenAendern,
@@ -8,6 +9,7 @@ import {
     rahmenHinzufuegen,
     rahmenListe,
     rahmenVonFeld,
+    zeileVonFeld,
 } from '../bearbeiten';
 import { felderInReihenfolge, layoutAufloesen } from '../definition';
 import type { FormularDefinition, FormularFeld } from '../types';
@@ -253,5 +255,92 @@ describe('Felder nebeneinander legen', () => {
         };
 
         expect(feldNebenFeld(voll, 'b', 'a').conditions).toEqual(voll.conditions);
+    });
+});
+
+describe('Ein Feld wieder aus seiner Zeile holen', () => {
+    const drei: FormularDefinition = {
+        fields: [feld('a'), feld('b'), feld('c')],
+        layout: [
+            { type: 'row', columns: [['a']] },
+            { type: 'row', columns: [['b']] },
+            { type: 'row', columns: [['c']] },
+        ],
+    };
+
+    const zeilenVon = (definition: FormularDefinition) =>
+        layoutAufloesen(definition)
+            .filter((k) => k.type === 'row')
+            .map((k) => (k.type === 'row' ? k.columns.map((s) => s.map((f) => f.name)) : []));
+
+    it('stellt das Feld direkt unter die Zeile, aus der es kommt', () => {
+        // Und nicht ans Ende des Formulars: Ein Feld, das beim Heraustrennen
+        // ans andere Ende springt, sieht aus wie ein Fehler.
+        const zusammen = feldNebenFeld(drei, 'b', 'a');
+
+        expect(zeilenVon(feldEigeneZeile(zusammen, 'b'))).toEqual([
+            [['a']],
+            [['b']],
+            [['c']],
+        ]);
+    });
+
+    it('laesst ein Feld in Ruhe, das ohnehin allein steht', () => {
+        expect(feldEigeneZeile(drei, 'a')).toEqual(drei);
+    });
+
+    it('bleibt in der Gruppe, aus der das Feld kommt', () => {
+        const inGruppe: FormularDefinition = {
+            fields: [feld('a'), feld('b')],
+            layout: [
+                {
+                    type: 'group',
+                    id: 'g1',
+                    children: [{ type: 'row', columns: [['a'], ['b']] }],
+                },
+            ],
+        };
+
+        const danach = feldEigeneZeile(inGruppe, 'b');
+
+        // Das Heraustrennen aus einer Zeile ist keine Aussage darueber, wo das
+        // Feld hingehoert — wer es aus der Gruppe wirft, hat etwas anderes getan.
+        expect(rahmenVonFeld(danach, 'b')).toBe('g1');
+    });
+
+    it('behaelt Bedingungen', () => {
+        const voll: FormularDefinition = {
+            ...feldNebenFeld(drei, 'b', 'a'),
+            conditions: [
+                {
+                    id: 'r1',
+                    target: { kind: 'field', ref: 'b' },
+                    effect: 'show',
+                    match: 'all',
+                    tests: [{ field: 'a', op: 'filled' }],
+                },
+            ],
+        };
+
+        expect(feldEigeneZeile(voll, 'b').conditions).toEqual(voll.conditions);
+    });
+});
+
+describe('Die Zeile eines Feldes finden', () => {
+    it('nennt die Spalten der Zeile, in der das Feld steht', () => {
+        const definition: FormularDefinition = {
+            fields: [feld('a'), feld('b')],
+            layout: [{ type: 'row', columns: [['a'], ['b']] }],
+        };
+
+        expect(zeileVonFeld(definition, 'b')).toEqual([['a'], ['b']]);
+    });
+
+    it('findet die Zeile auch in einer Gruppe', () => {
+        expect(zeileVonFeld(mitGruppe, 'a')).toEqual([['a']]);
+    });
+
+    it('gibt null zurueck, wenn das Feld in keiner Zeile steht', () => {
+        expect(zeileVonFeld(mitGruppe, 'gibtsnicht')).toBeNull();
     });
 });

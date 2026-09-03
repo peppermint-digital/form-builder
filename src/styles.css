@@ -159,6 +159,45 @@
     border-style: dashed;
 }
 
+/*
+ * Ein Rahmen in der Listenansicht.
+ *
+ * Nur ein Kasten mit Beschriftung: Angelegt und aufgeloest werden Gruppen und
+ * Schritte in der Strukturansicht. Hier geht es darum, dass man SIEHT, wozu ein
+ * Feld gehoert — vorher stuerzte die Liste an dieser Stelle ab.
+ */
+.pm-fb-rahmenblock {
+    border: 1px solid currentColor;
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+    margin: 0.25rem 0;
+    opacity: 0.95;
+}
+
+.pm-fb-rahmenblock--schritt {
+    border-style: dashed;
+}
+
+.pm-fb-rahmenblock__kopf {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.pm-fb-rahmenblock__art {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.6;
+}
+
+.pm-fb-rahmenblock__pfeile {
+    margin-left: auto;
+    display: flex;
+    gap: 0.25rem;
+}
+
 .pm-fb-karte__kopf {
     display: flex;
     align-items: center;

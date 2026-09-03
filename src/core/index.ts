@@ -2,6 +2,7 @@ export {
     abschnittHinzufuegen,
     definitionBereinigen,
     feldAendern,
+    feldEigeneZeile,
     feldEntfernen,
     feldHinzufuegen,
     feldInRahmen,
@@ -18,6 +19,7 @@ export {
     rahmenListe,
     rahmenVonFeld,
     zeileVerschieben,
+    zeileVonFeld,
 } from './bearbeiten';
 export type { Ablageziel } from './bearbeiten';
 export {

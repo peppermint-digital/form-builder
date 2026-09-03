@@ -4,6 +4,7 @@ import type {
     LayoutGruppe,
     LayoutKnoten,
     LayoutSchritt,
+    LayoutSpalte,
     LayoutZeile,
 } from './types';
 
@@ -13,10 +14,145 @@ import type {
  */
 export const MAX_SPALTEN = 3;
 
-/** Wohin ein Feld gezogen wurde. */
+/**
+ * Wohin ein Feld gezogen wurde.
+ *
+ * `pfad` benennt den Rahmen, in dem gearbeitet wird — die Indizes der Gruppen
+ * und Schritte, in die hinabzusteigen ist. Leer oder fehlend heisst oberste
+ * Ebene; das ist die Vorgabe, damit ein Formular ohne Rahmen unveraendert
+ * bedient wird. `zeile` und `position` zaehlen INNERHALB dieses Rahmens.
+ *
+ * Ohne den Pfad wuerde `layout[ziel.zeile]` gelesen, und das trifft die
+ * falsche Zeile, sobald irgendwo eine Gruppe steht — dieselbe Falle, wegen der
+ * es {@see feldNebenFeld} ueber Namen gibt.
+ */
 export type Ablageziel =
-    | { art: 'spalte'; zeile: number; position: number }
-    | { art: 'neueZeile'; position: number };
+    | { art: 'spalte'; pfad?: number[]; zeile: number; position: number }
+    | { art: 'neueZeile'; pfad?: number[]; position: number };
+
+/**
+ * Ersetzt die Knotenliste eines Rahmens — oder die oberste Ebene.
+ *
+ * Eine Stelle fuer das Hinabsteigen, damit nicht jede Bearbeitungsfunktion
+ * ihre eigene Schleife durch den Baum bekommt. Zeigt der Pfad ins Leere,
+ * bleibt alles unveraendert: ein Griff, der nichts trifft, darf nichts
+ * zerstoeren.
+ */
+function imRahmen(
+    layout: LayoutKnoten[],
+    pfad: number[],
+    umbau: (liste: LayoutKnoten[]) => LayoutKnoten[],
+): LayoutKnoten[] {
+    if (pfad.length === 0) {
+        return umbau(layout);
+    }
+
+    const [index, ...rest] = pfad;
+    const knoten = index === undefined ? undefined : layout[index];
+
+    if (index === undefined || !knoten || !istRahmen(knoten)) {
+        return layout;
+    }
+
+    const neu = [...layout];
+    neu[index] = { ...knoten, children: imRahmen(knoten.children, rest, umbau) };
+
+    return neu;
+}
+
+/** Die Knotenliste eines Rahmens — `null`, wenn der Pfad ins Leere zeigt. */
+function listeAm(layout: LayoutKnoten[], pfad: number[]): LayoutKnoten[] | null {
+    let liste = layout;
+
+    for (const index of pfad) {
+        const knoten = liste[index];
+
+        if (!knoten || !istRahmen(knoten)) {
+            return null;
+        }
+
+        liste = knoten.children;
+    }
+
+    return liste;
+}
+
+/**
+ * Welcher Rahmen am Ende des Pfades steht — `null` fuer die oberste Ebene,
+ * `undefined`, wenn der Pfad ins Leere zeigt.
+ *
+ * Gebraucht, weil ein Pfad aus INDIZES besteht und {@see feldVerschieben} das
+ * Feld zuerst herausnimmt: Wird dabei eine Zeile leer, ruecken alle
+ * nachfolgenden Knoten eine Stelle vor, und derselbe Pfad zeigt danach auf
+ * einen anderen Rahmen — oder ins Nichts. Die Kennung eines Rahmens
+ * ueberlebt das Umraeumen, ein Index nicht.
+ */
+function rahmenIdAm(
+    layout: LayoutKnoten[],
+    pfad: number[],
+): string | null | undefined {
+    let liste = layout;
+    let id: string | null = null;
+
+    for (const index of pfad) {
+        const knoten = liste[index];
+
+        if (!knoten || !istRahmen(knoten)) {
+            return undefined;
+        }
+
+        id = knoten.id;
+        liste = knoten.children;
+    }
+
+    return id;
+}
+
+/** Die Kinder eines Rahmens ueber seine Kennung — `null`, wenn es ihn nicht gibt. */
+function listeMitId(layout: LayoutKnoten[], id: string | null): LayoutKnoten[] | null {
+    if (id === null) {
+        return layout;
+    }
+
+    for (const eintrag of layout) {
+        if (!istRahmen(eintrag)) {
+            continue;
+        }
+
+        if (eintrag.id === id) {
+            return eintrag.children;
+        }
+
+        const tiefer = listeMitId(eintrag.children, id);
+
+        if (tiefer !== null) {
+            return tiefer;
+        }
+    }
+
+    return null;
+}
+
+/** Wie {@see imRahmen}, nur ueber die Kennung statt ueber den Pfad. */
+function imRahmenMitId(
+    layout: LayoutKnoten[],
+    id: string | null,
+    umbau: (liste: LayoutKnoten[]) => LayoutKnoten[],
+): LayoutKnoten[] {
+    if (id === null) {
+        return umbau(layout);
+    }
+
+    return layout.map((eintrag) => {
+        if (!istRahmen(eintrag)) {
+            return eintrag;
+        }
+
+        return eintrag.id === id
+            ? { ...eintrag, children: umbau(eintrag.children) }
+            : { ...eintrag, children: imRahmenMitId(eintrag.children, id, umbau) };
+    });
+}
 
 function istRahmen(knoten: LayoutKnoten): knoten is LayoutGruppe | LayoutSchritt {
     return knoten.type === 'group' || knoten.type === 'step';
@@ -191,17 +327,38 @@ export function feldVerschieben(
         return definition;
     }
 
-    const bereinigt = ausLayoutEntfernen(layout, name);
+    // Die Kennung VOR dem Herausnehmen bestimmen, die Liste danach: Das
+    // Herausnehmen kann eine Zeile leeren und damit alle Indizes verschieben.
+    const rahmenId = rahmenIdAm(layout, ziel.pfad ?? []);
 
-    if (ziel.art === 'neueZeile') {
-        const position = Math.max(0, Math.min(ziel.position, bereinigt.length));
-        const neu = [...bereinigt];
-        neu.splice(position, 0, { type: 'row', columns: [[name]] });
-
-        return { ...gesichert, layout: neu };
+    // Ein Pfad, der ins Leere zeigt, ist kein Grund, das Feld irgendwo
+    // abzulegen — es bleibt, wo es war.
+    if (rahmenId === undefined) {
+        return gesichert;
     }
 
-    const zeile = bereinigt[ziel.zeile];
+    const bereinigt = ausLayoutEntfernen(layout, name);
+    const liste = listeMitId(bereinigt, rahmenId);
+
+    if (liste === null) {
+        return gesichert;
+    }
+
+    if (ziel.art === 'neueZeile') {
+        const position = Math.max(0, Math.min(ziel.position, liste.length));
+
+        return {
+            ...gesichert,
+            layout: imRahmenMitId(bereinigt, rahmenId, (aktuell) => {
+                const neu = [...aktuell];
+                neu.splice(position, 0, { type: 'row', columns: [[name]] });
+
+                return neu;
+            }),
+        };
+    }
+
+    const zeile = liste[ziel.zeile];
 
     // Die Zielzeile kann durch das Herausnehmen verschwunden sein — dann war
     // das Feld ihr einziger Inhalt, und es bleibt, wo es war.
@@ -216,20 +373,37 @@ export function feldVerschieben(
     const columns = [...zeile.columns];
     columns.splice(Math.max(0, Math.min(ziel.position, columns.length)), 0, [name]);
 
-    const neu = [...bereinigt];
-    neu[ziel.zeile] = { type: 'row', columns };
+    return {
+        ...gesichert,
+        layout: imRahmenMitId(bereinigt, rahmenId, (aktuell) => {
+            const neu = [...aktuell];
+            neu[ziel.zeile] = { type: 'row', columns };
 
-    return { ...gesichert, layout: neu };
+            return neu;
+        }),
+    };
 }
 
-/** Schiebt eine ganze Zeile nach oben oder unten. */
+/**
+ * Schiebt einen Knoten nach oben oder unten — innerhalb seines Rahmens.
+ *
+ * `pfad` benennt den Rahmen wie bei {@see Ablageziel}; leer ist die oberste
+ * Ebene. Verschoben wird nur INNERHALB einer Ebene: Ein Pfeil, der ein Feld
+ * aus seiner Gruppe herausbefoerdert, waere ein Umzug und keine Reihenfolge.
+ */
 export function zeileVerschieben(
     definition: FormularDefinition,
     von: number,
     nach: number,
+    pfad: number[] = [],
 ): FormularDefinition {
     const gesichert = layoutSicherstellen(definition);
-    const { fields, layout } = gesichert;
+    const { fields } = gesichert;
+    const layout = listeAm(gesichert.layout, pfad);
+
+    if (layout === null) {
+        return gesichert;
+    }
 
     if (von < 0 || von >= layout.length || nach < 0 || nach >= layout.length) {
         return gesichert;
@@ -242,7 +416,7 @@ export function zeileVerschieben(
         neu.splice(nach, 0, bewegt);
     }
 
-    return { ...gesichert, layout: neu };
+    return { ...gesichert, layout: imRahmen(gesichert.layout, pfad, () => neu) };
 }
 
 export function abschnittHinzufuegen(
@@ -263,19 +437,33 @@ export function abschnittHinzufuegen(
     return { ...gesichert, layout: neu };
 }
 
+/**
+ * Entfernt einen Abschnitt — nie eine Zeile.
+ *
+ * Eine Zeile enthaelt Felder, und die traegt man ueber `feldEntfernen`
+ * einzeln ab. Ein Griff, der beim Aufraeumen der Gliederung stillschweigend
+ * Datenschluessel mitnimmt, ist genau der, den niemand rueckgaengig machen kann.
+ */
 export function knotenEntfernen(
     definition: FormularDefinition,
     index: number,
+    pfad: number[] = [],
 ): FormularDefinition {
     const gesichert = layoutSicherstellen(definition);
-    const { fields, layout } = gesichert;
-    const knoten = layout[index];
+    const { fields } = gesichert;
+    const liste = listeAm(gesichert.layout, pfad);
+    const knoten = liste?.[index];
 
-    if (!knoten || istZeile(knoten)) {
+    if (!liste || !knoten || istZeile(knoten)) {
         return gesichert;
     }
 
-    return { ...gesichert, layout: layout.filter((_, i) => i !== index) };
+    return {
+        ...gesichert,
+        layout: imRahmen(gesichert.layout, pfad, (aktuell) =>
+            aktuell.filter((_, i) => i !== index),
+        ),
+    };
 }
 
 /**
@@ -528,6 +716,99 @@ export function rahmenListe(
     gehen(definition.layout ?? []);
 
     return aus;
+}
+
+/**
+ * Die Spalten der Zeile, in der ein Feld steht — `null`, wenn keine da ist.
+ *
+ * Fuer die Auswahlfelder im Editor: Er muss wissen, ob ein Feld allein steht
+ * und wer sonst noch in seiner Zeile ist, ohne das Layout selbst zu durchlaufen.
+ * Taete er es selbst, gaebe es eine zweite Lesart derselben Struktur — und die
+ * waere beim naechsten Umbau die falsche.
+ */
+export function zeileVonFeld(
+    definition: FormularDefinition,
+    name: string,
+): LayoutSpalte[] | null {
+    const suchen = (knoten: LayoutKnoten[]): LayoutSpalte[] | null => {
+        for (const eintrag of knoten) {
+            if (istRahmen(eintrag)) {
+                const treffer = suchen(eintrag.children);
+
+                if (treffer !== null) {
+                    return treffer;
+                }
+
+                continue;
+            }
+
+            if (istZeile(eintrag) && eintrag.columns.flat().includes(name)) {
+                return eintrag.columns;
+            }
+        }
+
+        return null;
+    };
+
+    return suchen(definition.layout ?? []);
+}
+
+/**
+ * Holt ein Feld aus seiner geteilten Zeile in eine eigene.
+ *
+ * Der Rueckweg zu {@see feldNebenFeld}. Ohne ihn ist das Nebeneinanderstellen
+ * eine Einbahnstrasse: Zwei Felder in eine Zeile zu legen geht mit einem Griff,
+ * sie wieder zu trennen gar nicht.
+ *
+ * Die neue Zeile steht direkt UNTER der alten und nicht am Ende des Formulars.
+ * Ein Feld, das beim Heraustrennen ans andere Ende springt, sieht aus wie ein
+ * Fehler — und der Zusammenhang zum eigenen Handgriff ist von aussen nicht mehr
+ * zu sehen. Gefunden wird die Stelle ueber ein verbliebenes Nachbarfeld, weil
+ * ein Zeilenindex in Gruppen und Schritten das Falsche trifft.
+ */
+export function feldEigeneZeile(
+    definition: FormularDefinition,
+    name: string,
+): FormularDefinition {
+    const gesichert = layoutSicherstellen(definition);
+    const spalten = zeileVonFeld(gesichert, name);
+
+    // Steht schon allein — oder gibt es gar nicht. Beides ist kein Umbau.
+    if (spalten === null || spalten.flat().length <= 1) {
+        return definition;
+    }
+
+    const anker = spalten.flat().find((eintrag) => eintrag !== name);
+
+    if (anker === undefined) {
+        return definition;
+    }
+
+    const bereinigt = ausLayoutEntfernen(gesichert.layout, name);
+    const zeile: LayoutZeile = { type: 'row', columns: [[name]] };
+    let gesetzt = false;
+
+    const gehen = (knoten: LayoutKnoten[]): LayoutKnoten[] =>
+        knoten.flatMap((eintrag): LayoutKnoten[] => {
+            if (istRahmen(eintrag)) {
+                return [{ ...eintrag, children: gehen(eintrag.children) }];
+            }
+
+            if (gesetzt || !istZeile(eintrag) || !eintrag.columns.flat().includes(anker)) {
+                return [eintrag];
+            }
+
+            gesetzt = true;
+
+            return [eintrag, zeile];
+        });
+
+    const layout = gehen(bereinigt);
+
+    // Wie bei `feldNebenFeld`: nicht untergebracht heisst unveraendert. Ein
+    // Feld, das beim Verschieben verschwindet, waere schlimmer als eines, das
+    // sich nicht verschieben laesst.
+    return gesetzt ? { ...gesichert, layout } : definition;
 }
 
 /**

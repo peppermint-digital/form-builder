@@ -8,6 +8,79 @@ const definition = (namen: string[]): FormularDefinition => ({
     fields: namen.map((name) => ({ name, label: name, type: 'text' })),
 });
 
+/**
+ * Die Listenansicht und die Rahmen (Bug #688).
+ *
+ * Die flache Fassung behandelte jeden Knoten als Zeile und griff auf
+ * `columns` zu — eine Gruppe hat das nicht. Der Tab blieb leer, sobald
+ * irgendwo eine Gruppe stand. Gebaut werden konnte sie in der Strukturansicht;
+ * die beiden Ansichten waren also nicht zwei Sichten auf dasselbe.
+ */
+describe('FormularEditor mit Rahmen', () => {
+    const mitGruppe: FormularDefinition = {
+        fields: [
+            { name: 'drinnen', label: 'drinnen', type: 'text' },
+            { name: 'draussen', label: 'draussen', type: 'text' },
+        ],
+        layout: [
+            {
+                type: 'group',
+                id: 'g1',
+                title: 'Anreise',
+                children: [{ type: 'row', columns: [['drinnen']] }],
+            },
+            { type: 'row', columns: [['draussen']] },
+        ],
+    };
+
+    it('zeigt das Feld einer Gruppe, statt abzustuerzen', () => {
+        render(<FormularEditor definition={mitGruppe} onChange={() => {}} />);
+
+        expect(screen.getByText('drinnen')).toBeDefined();
+        expect(screen.getByText('draussen')).toBeDefined();
+    });
+
+    it('nennt den Rahmen beim Namen', () => {
+        render(<FormularEditor definition={mitGruppe} onChange={() => {}} />);
+
+        expect(screen.getByText('Anreise')).toBeDefined();
+        expect(screen.getByText('Gruppe')).toBeDefined();
+    });
+
+    it('verschiebt eine Zeile innerhalb der Gruppe und nicht daneben', () => {
+        const onChange = vi.fn();
+        const zwei: FormularDefinition = {
+            fields: [
+                { name: 'a', label: 'a', type: 'text' },
+                { name: 'b', label: 'b', type: 'text' },
+            ],
+            layout: [
+                {
+                    type: 'group',
+                    id: 'g1',
+                    title: 'Anreise',
+                    children: [
+                        { type: 'row', columns: [['a']] },
+                        { type: 'row', columns: [['b']] },
+                    ],
+                },
+            ],
+        };
+
+        render(<FormularEditor definition={zwei} onChange={onChange} />);
+
+        fireEvent.click(screen.getByLabelText('b nach oben'));
+
+        const danach = onChange.mock.calls[0]?.[0] as FormularDefinition;
+        const gruppe = danach.layout?.[0];
+
+        expect(gruppe && gruppe.type === 'group' ? gruppe.children : []).toEqual([
+            { type: 'row', columns: [['b']] },
+            { type: 'row', columns: [['a']] },
+        ]);
+    });
+});
+
 describe('FormularEditor', () => {
     it('zeigt jedes Feld der Definition', () => {
         render(

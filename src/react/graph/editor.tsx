@@ -18,10 +18,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     definitionLesen,
     feldAendern,
+    feldEigeneZeile,
     feldEntfernen,
     feldHinzufuegen,
     feldInRahmen,
     feldNebenFeld,
+    MAX_SPALTEN,
     naechsterFeldname,
     rahmenAendern,
     rahmenEntfernen,
@@ -29,6 +31,7 @@ import {
     rahmenListe,
     rahmenVonFeld,
     sichtbarkeit,
+    zeileVonFeld,
     type FormularDefinition,
     type FormularFeld,
     type Knotenposition,
@@ -515,6 +518,50 @@ function GraphEditorInhalt({
             ? gelesen.fields.find((feld) => feld.name === bezug.ref)
             : undefined;
 
+    /**
+     * Die Zeile des gewaehlten Feldes — und wer darin sonst noch steht.
+     *
+     * Der Wert der Auswahl ist ein NACHBAR und nicht die Zeile selbst: Eine
+     * Zeile hat keine Kennung, an der sich etwas festmachen liesse, und der
+     * Kern arbeitet aus demselben Grund ueber Feldnamen.
+     */
+    const zeilenNamen = gewaehltesFeld
+        ? (zeileVonFeld(gelesen, gewaehltesFeld.name) ?? []).flat()
+        : [];
+
+    const nebenFeld = gewaehltesFeld
+        ? zeilenNamen.find((name) => name !== gewaehltesFeld.name) ?? ''
+        : '';
+
+    /**
+     * Wen die Auswahl anbietet.
+     *
+     * Nur Felder im SELBEN Rahmen: Sonst waere „steht neben" gleichzeitig ein
+     * Umzug in eine andere Gruppe, und die Auswahl darueber wuerde sich still
+     * mitaendern. Zwei Bedienelemente, die sich gegenseitig verstellen, sind
+     * schwerer zu erklaeren als eine Einschraenkung.
+     *
+     * Und nur Felder, deren Zeile noch Platz hat — eine Auswahl, die nichts
+     * bewirkt, ist schlimmer als eine, die es nicht gibt.
+     */
+    const nebenKandidaten = gewaehltesFeld
+        ? gelesen.fields.filter((feld) => {
+              if (feld.name === gewaehltesFeld.name) {
+                  return false;
+              }
+
+              if (rahmenVonFeld(gelesen, feld.name) !== rahmenVonFeld(gelesen, gewaehltesFeld.name)) {
+                  return false;
+              }
+
+              if (zeilenNamen.includes(feld.name)) {
+                  return true;
+              }
+
+              return (zeileVonFeld(gelesen, feld.name)?.length ?? 0) < MAX_SPALTEN;
+          })
+        : [];
+
     const gewaehlterRahmen =
         bezug && (bezug.art === 'gruppe' || bezug.art === 'schritt')
             ? rahmen.find((eintrag) => eintrag.id === bezug.ref)
@@ -661,6 +708,44 @@ function GraphEditorInhalt({
                                         {eintrag.art === 'group' ? 'Gruppe' : 'Schritt'}
                                         {': '}
                                         {eintrag.titel}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+
+                        {/*
+                            Die Spaltigkeit als Auswahl — denselben Weg wie
+                            „Liegt in" darueber. Zwei Knoten aufeinander zu
+                            ziehen tut dasselbe und ist schneller, aber es ist
+                            nicht zu sehen: Wer die Geste nicht kennt, haelt
+                            Spalten fuer etwas, das nur die Listenansicht kann.
+                            Und zurueck kam man ueber die Geste gar nicht.
+                        */}
+                        <label className="pm-fb-graph__feld">
+                            <span>Steht neben</span>
+                            <select
+                                value={nebenFeld}
+                                onChange={(e) => {
+                                    const name = gewaehltesFeld.name;
+
+                                    // Die gemerkte Position gilt fuer die alte
+                                    // Stelle. Ohne das Vergessen aendert sich
+                                    // die Auswahl und der Knoten bleibt liegen
+                                    // — es sieht aus, als sei nichts passiert.
+                                    onChange(
+                                        anordnungVergessen(
+                                            e.target.value === ''
+                                                ? feldEigeneZeile(gelesen, name)
+                                                : feldNebenFeld(gelesen, name, e.target.value),
+                                            knotenId('feld', name),
+                                        ),
+                                    );
+                                }}
+                            >
+                                <option value="">Eigene Zeile</option>
+                                {nebenKandidaten.map((kandidat) => (
+                                    <option key={kandidat.name} value={kandidat.name}>
+                                        {kandidat.label || kandidat.name}
                                     </option>
                                 ))}
                             </select>

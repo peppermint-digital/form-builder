@@ -7,6 +7,7 @@ import {
     feldEntfernen,
     feldHinzufuegen,
     feldVerschieben,
+    knotenEntfernen,
     layoutSicherstellen,
     naechsterFeldname,
     zeileVerschieben,
@@ -211,5 +212,111 @@ describe('definitionBereinigen', () => {
         const definition = definitionBereinigen({ fields: [feld('name')] });
 
         expect(definition.fields[0]?.options).toBeUndefined();
+    });
+});
+
+describe('Bearbeiten innerhalb eines Rahmens', () => {
+    /**
+     * Ohne Pfad las jede dieser Funktionen `layout[index]` — also die oberste
+     * Ebene, egal aus welcher Gruppe der Griff kam. In einem Formular mit
+     * Gruppen traf damit jeder Pfeil und jede Ablage die falsche Zeile.
+     */
+    const inGruppe = (): FormularDefinition => ({
+        fields: [feld('a'), feld('b'), feld('c')],
+        layout: [
+            { type: 'row', columns: [['c']] },
+            {
+                type: 'group',
+                id: 'g1',
+                title: 'Anreise',
+                children: [
+                    { type: 'row', columns: [['a']] },
+                    { type: 'row', columns: [['b']] },
+                ],
+            },
+        ],
+    });
+
+    /**
+     * Die Gruppe ueber ihren Typ suchen, nicht ueber ihren Index.
+     *
+     * Wird `c` aus seiner eigenen Zeile genommen, faellt die leere Zeile weg
+     * und die Gruppe rueckt von Stelle 1 auf Stelle 0 — genau die Verschiebung,
+     * wegen der die Funktion selbst mit der Rahmen-Kennung arbeitet.
+     */
+    const gruppeVon = (definition: FormularDefinition) => {
+        const knoten = definition.layout?.find((eintrag) => eintrag.type === 'group');
+
+        return knoten && knoten.type === 'group' ? knoten.children : [];
+    };
+
+    it('legt ein Feld in eine Spalte INNERHALB der Gruppe', () => {
+        const danach = feldVerschieben(inGruppe(), 'c', {
+            art: 'spalte',
+            pfad: [1],
+            zeile: 0,
+            position: 1,
+        });
+
+        expect(gruppeVon(danach)[0]).toEqual({
+            type: 'row',
+            columns: [['a'], ['c']],
+        });
+    });
+
+    it('legt eine neue Zeile INNERHALB der Gruppe an', () => {
+        const danach = feldVerschieben(inGruppe(), 'c', {
+            art: 'neueZeile',
+            pfad: [1],
+            position: 0,
+        });
+
+        expect(gruppeVon(danach)[0]).toEqual({ type: 'row', columns: [['c']] });
+        expect(gruppeVon(danach)).toHaveLength(3);
+    });
+
+    it('vertauscht zwei Zeilen INNERHALB der Gruppe', () => {
+        const danach = zeileVerschieben(inGruppe(), 1, 0, [1]);
+
+        expect(gruppeVon(danach).map((k) => (k.type === 'row' ? k.columns : null))).toEqual([
+            [['b']],
+            [['a']],
+        ]);
+    });
+
+    it('laesst alles in Ruhe, wenn der Pfad ins Leere zeigt', () => {
+        // Ein Griff, der nichts trifft, darf nichts zerstoeren — und ein Feld,
+        // das dabei irgendwo landet, waere schlimmer als eines, das bleibt.
+        const vorher = inGruppe();
+        const danach = feldVerschieben(vorher, 'c', {
+            art: 'neueZeile',
+            pfad: [7],
+            position: 0,
+        });
+
+        expect(danach.layout).toEqual(vorher.layout);
+    });
+
+    it('entfernt einen Abschnitt INNERHALB der Gruppe', () => {
+        const mitAbschnitt: FormularDefinition = {
+            fields: [feld('a')],
+            layout: [
+                {
+                    type: 'group',
+                    id: 'g1',
+                    children: [
+                        { type: 'section', title: 'Zwischenueberschrift' },
+                        { type: 'row', columns: [['a']] },
+                    ],
+                },
+            ],
+        };
+
+        const danach = knotenEntfernen(mitAbschnitt, 0, [0]);
+        const gruppe = danach.layout?.[0];
+
+        expect(gruppe && gruppe.type === 'group' ? gruppe.children : []).toEqual([
+            { type: 'row', columns: [['a']] },
+        ]);
     });
 });

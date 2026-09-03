@@ -24,7 +24,7 @@ import {
     type Ablageziel,
     type FormularDefinition,
     type FormularFeld,
-    type LayoutZeile,
+    type LayoutKnoten,
     type RoheDefinition,
 } from '../../core';
 import Feldmaske, { type FeldTypAuswahl } from './feldmaske';
@@ -48,19 +48,34 @@ export interface FormularEditorProps {
     zusatzTypen?: FeldTypAuswahl[];
 }
 
-/** Wohin eine Ablage zeigt — kodiert in der Droppable-Kennung. */
+/**
+ * Wohin eine Ablage zeigt — kodiert in der Droppable-Kennung.
+ *
+ * Der zweite Abschnitt ist der Pfad in den Rahmen: leer die oberste Ebene,
+ * sonst die Indizes der Gruppen und Schritte mit Punkten dazwischen. Ohne ihn
+ * zeigte jede Ablagestelle einer Gruppe auf die gleichnamige Zeile GANZ OBEN.
+ */
 function zielLesen(id: string): Ablageziel | null {
     const teile = id.split(':');
+    const pfad =
+        teile[1] === undefined || teile[1] === ''
+            ? []
+            : teile[1].split('.').map(Number);
 
-    if (teile[0] === 'neuezeile' && teile[1] !== undefined) {
-        return { art: 'neueZeile', position: Number(teile[1]) };
+    if (teile[0] === 'neuezeile' && teile[2] !== undefined) {
+        return { art: 'neueZeile', pfad, position: Number(teile[2]) };
     }
 
-    if (teile[0] === 'spalte' && teile[1] !== undefined && teile[2] !== undefined) {
-        return { art: 'spalte', zeile: Number(teile[1]), position: Number(teile[2]) };
+    if (teile[0] === 'spalte' && teile[2] !== undefined && teile[3] !== undefined) {
+        return { art: 'spalte', pfad, zeile: Number(teile[2]), position: Number(teile[3]) };
     }
 
     return null;
+}
+
+/** Der Pfad als Teil einer Droppable-Kennung. */
+function pfadKennung(pfad: number[]): string {
+    return pfad.join('.');
 }
 
 function Ablagestelle({ id, waagerecht = false }: { id: string; waagerecht?: boolean }) {
@@ -167,25 +182,25 @@ export default function FormularEditor({
         onChange(feldVerschieben(gelesen, gezogen.slice('feld:'.length), ziel));
     };
 
-    return (
-        <div className="pm-fb-editor">
-            <div className="pm-fb-editor__leiste">
-                <span className="pm-fb-editor__zahl">
-                    {fields.length} {fields.length === 1 ? 'Feld' : 'Felder'}
-                </span>
-                <button type="button" className="pm-fb-knopf" onClick={feldHinzu}>
-                    Feld hinzufügen
-                </button>
-            </div>
+    /**
+     * Zeichnet eine Ebene des Layouts — und ruft sich fuer Rahmen selbst auf.
+     *
+     * Rekursiv und nicht flach, weil es seit den Gruppen und Schritten (#4658)
+     * mehr als eine Ebene gibt. Die flache Fassung behandelte JEDEN Knoten als
+     * Zeile und griff auf `columns` zu, das eine Gruppe nicht hat: Der ganze
+     * Tab blieb leer, sobald irgendwo eine Gruppe stand (Bug #688). Die
+     * Strukturansicht konnte Gruppen anlegen, die Liste stuerzte daran ab —
+     * die beiden Ansichten waren nicht zwei Sichten auf dasselbe, sondern zwei
+     * verschiedene Reichweiten.
+     */
+    const ebeneZeichnen = (liste: LayoutKnoten[], pfad: number[]) => {
+        const kennung = pfadKennung(pfad);
 
-            <DndContext
-                sensors={sensoren}
-                collisionDetection={closestCenter}
-                onDragEnd={beimAblegen}
-            >
-                <Ablagestelle id="neuezeile:0" />
+        return (
+            <>
+                <Ablagestelle id={`neuezeile:${kennung}:0`} />
 
-                {layout.map((knoten, index) => {
+                {liste.map((knoten, index) => {
                     if (knoten.type === 'section') {
                         return (
                             <div key={`abschnitt_${index}`}>
@@ -194,22 +209,92 @@ export default function FormularEditor({
                                     <button
                                         type="button"
                                         className="pm-fb-knopf pm-fb-knopf--still"
-                                        onClick={() => onChange(knotenEntfernen(gelesen, index))}
+                                        onClick={() =>
+                                            onChange(knotenEntfernen(gelesen, index, pfad))
+                                        }
                                     >
                                         Entfernen
                                     </button>
                                 </div>
-                                <Ablagestelle id={`neuezeile:${index + 1}`} />
+                                <Ablagestelle id={`neuezeile:${kennung}:${index + 1}`} />
                             </div>
                         );
                     }
 
-                    const zeile = knoten as LayoutZeile;
+                    if (knoten.type === 'group' || knoten.type === 'step') {
+                        return (
+                            <div key={`rahmen_${knoten.id}`}>
+                                <div
+                                    className={`pm-fb-rahmenblock pm-fb-rahmenblock--${
+                                        knoten.type === 'group' ? 'gruppe' : 'schritt'
+                                    }`}
+                                >
+                                    <div className="pm-fb-rahmenblock__kopf">
+                                        <span className="pm-fb-rahmenblock__art">
+                                            {knoten.type === 'group' ? 'Gruppe' : 'Schritt'}
+                                        </span>
+                                        <strong>
+                                            {knoten.title ||
+                                                (knoten.type === 'group' ? 'Gruppe' : 'Schritt')}
+                                        </strong>
+                                        <span className="pm-fb-rahmenblock__pfeile">
+                                            <button
+                                                type="button"
+                                                className="pm-fb-knopf pm-fb-knopf--still"
+                                                aria-label={`${knoten.title ?? ''} nach oben`}
+                                                onClick={() =>
+                                                    onChange(
+                                                        zeileVerschieben(
+                                                            gelesen,
+                                                            index,
+                                                            index - 1,
+                                                            pfad,
+                                                        ),
+                                                    )
+                                                }
+                                            >
+                                                ↑
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="pm-fb-knopf pm-fb-knopf--still"
+                                                aria-label={`${knoten.title ?? ''} nach unten`}
+                                                onClick={() =>
+                                                    onChange(
+                                                        zeileVerschieben(
+                                                            gelesen,
+                                                            index,
+                                                            index + 1,
+                                                            pfad,
+                                                        ),
+                                                    )
+                                                }
+                                            >
+                                                ↓
+                                            </button>
+                                        </span>
+                                    </div>
+
+                                    {/*
+                                        Anlegen und Aufloesen bleiben der
+                                        Strukturansicht vorbehalten. Hier steht
+                                        der Rahmen, damit man SIEHT, wo ein Feld
+                                        liegt — und damit ein Formular mit
+                                        Gruppen ueberhaupt eine Liste hat.
+                                    */}
+                                    {ebeneZeichnen(knoten.children, [...pfad, index])}
+                                </div>
+                                <Ablagestelle id={`neuezeile:${kennung}:${index + 1}`} />
+                            </div>
+                        );
+                    }
+
+                    const zeile = knoten;
 
                     return (
                         <div key={`zeile_${index}`}>
                             <div className="pm-fb-editorzeile">
-                                <Ablagestelle id={`spalte:${index}:0`} waagerecht />
+                                <Ablagestelle id={`spalte:${kennung}:${index}:0`} waagerecht />
 
                                 {zeile.columns.map((spalte, spaltenIndex) => (
                                     <div className="pm-fb-editorspalte" key={spaltenIndex}>
@@ -249,6 +334,7 @@ export default function FormularEditor({
                                                                             gelesen,
                                                                             index,
                                                                             index - 1,
+                                                                            pfad,
                                                                         ),
                                                                     )
                                                                 }
@@ -265,6 +351,7 @@ export default function FormularEditor({
                                                                             gelesen,
                                                                             index,
                                                                             index + 1,
+                                                                            pfad,
                                                                         ),
                                                                     )
                                                                 }
@@ -309,17 +396,38 @@ export default function FormularEditor({
                                             );
                                         })}
                                         <Ablagestelle
-                                            id={`spalte:${index}:${spaltenIndex + 1}`}
+                                            id={`spalte:${kennung}:${index}:${spaltenIndex + 1}`}
                                             waagerecht
                                         />
                                     </div>
                                 ))}
                             </div>
 
-                            <Ablagestelle id={`neuezeile:${index + 1}`} />
+                            <Ablagestelle id={`neuezeile:${kennung}:${index + 1}`} />
                         </div>
                     );
                 })}
+            </>
+        );
+    };
+
+    return (
+        <div className="pm-fb-editor">
+            <div className="pm-fb-editor__leiste">
+                <span className="pm-fb-editor__zahl">
+                    {fields.length} {fields.length === 1 ? 'Feld' : 'Felder'}
+                </span>
+                <button type="button" className="pm-fb-knopf" onClick={feldHinzu}>
+                    Feld hinzufügen
+                </button>
+            </div>
+
+            <DndContext
+                sensors={sensoren}
+                collisionDetection={closestCenter}
+                onDragEnd={beimAblegen}
+            >
+                {ebeneZeichnen(layout, [])}
             </DndContext>
 
             {fields.length === 0 && (

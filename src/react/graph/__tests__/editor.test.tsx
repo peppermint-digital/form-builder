@@ -300,6 +300,94 @@ describe('GraphEditor', () => {
         expect(screen.getByText('Feld entfernen')).toBeDefined();
     });
 
+    /**
+     * Spalten in der Strukturansicht (#4830).
+     *
+     * Zwei Knoten aufeinander zu ziehen tat das schon — nur sah es niemand,
+     * und zurueck kam man gar nicht. Die Auswahl ist der benennbare Weg;
+     * gezogen wird weiterhin, wer die Geste kennt.
+     */
+    it('legt ein Feld ueber die Auswahl neben ein anderes', () => {
+        const onChange = vi.fn();
+        const { container } = render(
+            <GraphEditor
+                definition={{ fields: [feld('vorname'), feld('nachname')] }}
+                onChange={onChange}
+            />,
+        );
+
+        fireEvent.click(flaeche(container).getByText('nachname'));
+        fireEvent.change(screen.getByLabelText('Steht neben'), {
+            target: { value: 'vorname' },
+        });
+
+        const danach = onChange.mock.calls[0]![0] as FormularDefinition;
+
+        expect(danach.layout).toEqual([
+            { type: 'row', columns: [['vorname'], ['nachname']] },
+        ]);
+    });
+
+    it('holt ein Feld ueber die Auswahl wieder in eine eigene Zeile', () => {
+        const onChange = vi.fn();
+        const { container } = render(
+            <GraphEditor
+                definition={{
+                    fields: [feld('vorname'), feld('nachname')],
+                    layout: [{ type: 'row', columns: [['vorname'], ['nachname']] }],
+                }}
+                onChange={onChange}
+            />,
+        );
+
+        fireEvent.click(flaeche(container).getByText('nachname'));
+
+        // Der Wert steht auf dem Nachbarn — eine Zeile hat keine Kennung, an
+        // der sich etwas festmachen liesse.
+        expect((screen.getByLabelText('Steht neben') as HTMLSelectElement).value).toBe(
+            'vorname',
+        );
+
+        fireEvent.change(screen.getByLabelText('Steht neben'), {
+            target: { value: '' },
+        });
+
+        const danach = onChange.mock.calls[0]![0] as FormularDefinition;
+
+        expect(danach.layout).toEqual([
+            { type: 'row', columns: [['vorname']] },
+            { type: 'row', columns: [['nachname']] },
+        ]);
+    });
+
+    it('bietet nur Felder aus demselben Rahmen an', () => {
+        // Sonst waere „steht neben" gleichzeitig ein Umzug in eine andere
+        // Gruppe — und die Auswahl darueber wuerde sich still mitaendern.
+        const { container } = render(
+            <GraphEditor
+                definition={{
+                    fields: [feld('drinnen'), feld('draussen')],
+                    layout: [
+                        {
+                            type: 'group',
+                            id: 'g1',
+                            title: 'Anreise',
+                            children: [{ type: 'row', columns: [['drinnen']] }],
+                        },
+                        { type: 'row', columns: [['draussen']] },
+                    ],
+                }}
+                onChange={() => {}}
+            />,
+        );
+
+        fireEvent.click(flaeche(container).getByText('drinnen'));
+
+        const auswahl = screen.getByLabelText('Steht neben') as HTMLSelectElement;
+
+        expect([...auswahl.options].map((o) => o.value)).toEqual(['']);
+    });
+
     it('bietet bei einem gesperrten Feld kein Entfernen an', () => {
         // Darunter liegen Antworten — die waeren danach ohne Feld. Der
         // Waechter auf der Serverseite weist es ohnehin ab; hier erspart es
