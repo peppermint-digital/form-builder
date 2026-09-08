@@ -32,6 +32,22 @@ interface Props {
     sperrgrund?: string;
     /** Zusaetzliche, produkteigene Feldtypen. */
     zusatzTypen?: FeldTypAuswahl[];
+    /**
+     * Woraus sich ein Feld vorbelegen laesst. Kommt vom Produkt, weil nur es
+     * weiss, welche Daten es hat.
+     *
+     * Leer oder nicht gesetzt heisst: Die Auswahl erscheint gar nicht. Ein
+     * leeres Auswahlfeld, das nichts anzubieten hat, ist schlimmer als keines
+     * — es verspricht etwas.
+     */
+    quellen?: QuellenAuswahl[];
+}
+
+export interface QuellenAuswahl {
+    /** Der Pfad, der gespeichert wird — z. B. `order.delivery_date`. */
+    wert: string;
+    /** Was im Auswahlfeld steht — z. B. „Auftrag: Liefertermin". */
+    label: string;
 }
 
 export default function Feldmaske({
@@ -39,6 +55,7 @@ export default function Feldmaske({
     onChange,
     sperrgrund,
     zusatzTypen = [],
+    quellen = [],
 }: Props) {
     const typen = [...STANDARD_TYPEN, ...zusatzTypen];
     const hatOptionen = feld.type === 'select' || feld.type === 'radio';
@@ -110,6 +127,30 @@ export default function Feldmaske({
                          */
                         onChange={(e) => onChange({ options: e.target.value.split('\n') })}
                     />
+                </label>
+            )}
+
+            {quellen.length > 0 && (
+                <label className="pm-fb-maske__feld">
+                    <span>Vorbelegen aus</span>
+                    <select
+                        className="pm-fb-eingabe"
+                        value={feld.quelle ?? ''}
+                        onChange={(e) => onChange({ quelle: e.target.value })}
+                    >
+                        {/* Der leere Eintrag ist der Weg zurueck. Ohne ihn liesse
+                            sich eine einmal gesetzte Quelle nicht mehr loesen. */}
+                        <option value="">— keine —</option>
+                        {quellen.map((quelle) => (
+                            <option key={quelle.wert} value={quelle.wert}>
+                                {quelle.label}
+                            </option>
+                        ))}
+                    </select>
+                    <small className="pm-fb-hinweis">
+                        Der Wert steht beim Öffnen schon da und lässt sich überschreiben. Gespeichert wird, was beim
+                        Ausfüllen drinstand — nicht, was später in der Quelle steht.
+                    </small>
                 </label>
             )}
 

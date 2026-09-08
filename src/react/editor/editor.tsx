@@ -27,7 +27,7 @@ import {
     type LayoutKnoten,
     type RoheDefinition,
 } from '../../core';
-import Feldmaske, { type FeldTypAuswahl } from './feldmaske';
+import Feldmaske, { type FeldTypAuswahl, type QuellenAuswahl } from './feldmaske';
 
 export interface FormularEditorProps {
     definition: RoheDefinition;
@@ -46,6 +46,11 @@ export interface FormularEditorProps {
      */
     gesperrteFelder?: Record<string, string>;
     zusatzTypen?: FeldTypAuswahl[];
+    /**
+     * Woraus sich Felder vorbelegen lassen. Reicht der Editor unveraendert an
+     * die Feldmaske durch — er kennt die Bedeutung nicht, nur das Produkt.
+     */
+    quellen?: QuellenAuswahl[];
 }
 
 /**
@@ -141,6 +146,7 @@ export default function FormularEditor({
     onChange,
     gesperrteFelder = {},
     zusatzTypen = [],
+    quellen = [],
 }: FormularEditorProps) {
     const [offen, setOffen] = useState<string | null>(null);
 
@@ -377,6 +383,7 @@ export default function FormularEditor({
                                                         <Feldmaske
                                                             feld={feld}
                                                             zusatzTypen={zusatzTypen}
+                                                            quellen={quellen}
                                                             sperrgrund={gesperrteFelder[name]}
                                                             onChange={(aenderungen) => {
                                                                 onChange(

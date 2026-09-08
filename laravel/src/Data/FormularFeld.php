@@ -22,6 +22,20 @@ class FormularFeld
         public readonly array $options = [],
         public readonly ?string $placeholder = null,
         public readonly ?string $hinweis = null,
+        /**
+         * Woher das Feld beim Oeffnen vorbelegt wird — ein Pfad in die Daten
+         * des Hosts, etwa `order.delivery_date`.
+         *
+         * Nur eine VORBELEGUNG, keine Bindung: Der Wert wird beim Oeffnen
+         * eingesetzt und danach wie jede andere Antwort gespeichert. Wer ihn
+         * ueberschreibt, behaelt seine Aenderung — auch wenn sich die Quelle
+         * spaeter aendert.
+         *
+         * Das ist der Unterschied zu einem Platzhalter im Druck, und er ist
+         * beabsichtigt: Ein ausgedrucktes Formular soll den Stand vom
+         * Druckzeitpunkt zeigen, nicht den von heute.
+         */
+        public readonly ?string $quelle = null,
     ) {}
 
     /**
@@ -47,7 +61,22 @@ class FormularFeld
             options: is_array($options) ? array_values(array_filter($options, 'is_string')) : [],
             placeholder: is_string($roh['placeholder'] ?? null) ? $roh['placeholder'] : null,
             hinweis: is_string($roh['hinweis'] ?? null) ? $roh['hinweis'] : null,
+            quelle: self::quelleAus($roh['quelle'] ?? null),
         );
+    }
+
+    /**
+     * Eine leere Quelle ist keine Quelle.
+     *
+     * Der Baukasten schickt ein geleertes Auswahlfeld als leere Zeichenkette,
+     * nicht als `null`. Ohne diesen Schnitt haette ein Feld eine Quelle namens
+     * "" — und die Vorbelegung suchte danach still ins Leere.
+     */
+    private static function quelleAus(mixed $wert): ?string
+    {
+        $quelle = is_string($wert) ? trim($wert) : '';
+
+        return $quelle === '' ? null : $quelle;
     }
 
     /**
@@ -94,6 +123,7 @@ class FormularFeld
             'options' => $this->optionen(),
             'placeholder' => $this->placeholder,
             'hinweis' => $this->hinweis,
+            'quelle' => $this->quelle,
         ], fn ($wert) => $wert !== null && $wert !== []);
     }
 }

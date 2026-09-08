@@ -122,3 +122,67 @@ it('prueft ein leeres Formular nicht — es ist noch keine Aussage', function ()
 
     expect($pruefer->pruefen(definition([])))->toBe([]);
 });
+
+it('laesst eine Quelle durch, die der Host anbietet', function () {
+    $pruefer = new DefinitionPruefer(quellen: ['order.delivery_date', 'order.project_name']);
+    $neu = definition([feld('liefertermin', ['quelle' => 'order.delivery_date'])]);
+
+    expect($pruefer->pruefen($neu))->toBe([]);
+});
+
+/**
+ * Der stillste Fehler, den dieses Feld haben kann: Das Formular sieht richtig
+ * aus, das Feld bleibt beim Oeffnen leer, und der Anwender haelt das fuer die
+ * Absicht. Ein Tippfehler faellt sonst erst auf, wenn jemand dasselbe Datum
+ * zum zwanzigsten Mal abgetippt hat.
+ */
+it('meldet eine Quelle, die es nicht gibt — statt sie stumm ins Leere laufen zu lassen', function () {
+    $pruefer = new DefinitionPruefer(quellen: ['order.delivery_date']);
+    $neu = definition([feld('liefertermin', ['quelle' => 'order.lieferdatum'])]);
+
+    $fehler = $pruefer->pruefen($neu);
+
+    expect($fehler)->toHaveCount(1)
+        ->and($fehler[0])->toContain('order.lieferdatum')
+        // Die Meldung nennt, was stattdessen zur Wahl steht — sonst faengt das
+        // Raten von vorne an.
+        ->and($fehler[0])->toContain('order.delivery_date');
+});
+
+it('meldet jede Vorbelegung, wenn der Host gar keine Quellen anbietet', function () {
+    $neu = definition([feld('liefertermin', ['quelle' => 'order.delivery_date'])]);
+
+    expect((new DefinitionPruefer)->pruefen($neu))->toHaveCount(1);
+});
+
+it('laesst Felder ohne Quelle in Ruhe', function () {
+    $pruefer = new DefinitionPruefer(quellen: ['order.delivery_date']);
+
+    expect($pruefer->pruefen(definition([feld('bemerkung')])))->toBe([]);
+});
+
+/**
+ * Der Baukasten schickt ein geleertes Auswahlfeld als leere Zeichenkette. Ohne
+ * den Schnitt in FormularFeld haette das Feld eine Quelle namens "" — und der
+ * Waechter meldete einen Fehler fuer etwas, das der Anwender gerade bewusst
+ * entfernt hat.
+ */
+it('behandelt eine geleerte Quelle wie keine', function () {
+    $pruefer = new DefinitionPruefer(quellen: ['order.delivery_date']);
+    $neu = definition([feld('liefertermin', ['quelle' => '  '])]);
+
+    expect($pruefer->pruefen($neu))->toBe([])
+        ->and($neu->feld('liefertermin')->quelle)->toBeNull();
+});
+
+it('traegt die Quelle durch fromArray und toArray unveraendert', function () {
+    $definition = definition([feld('liefertermin', ['quelle' => 'order.delivery_date'])]);
+
+    expect($definition->feld('liefertermin')->quelle)->toBe('order.delivery_date')
+        ->and($definition->feld('liefertermin')->toArray()['quelle'])->toBe('order.delivery_date');
+});
+
+it('laesst die Quelle aus toArray weg, wenn keine gesetzt ist', function () {
+    expect(definition([feld('bemerkung')])->feld('bemerkung')->toArray())
+        ->not->toHaveKey('quelle');
+});

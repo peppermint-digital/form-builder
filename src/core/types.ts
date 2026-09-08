@@ -63,6 +63,21 @@ export interface FormularFeld {
 
     /** Hilfetext unter dem Feld. */
     hinweis?: string;
+
+    /**
+     * Woher das Feld beim Oeffnen vorbelegt wird — ein Pfad in die Daten der
+     * Anwendung, etwa `order.delivery_date`.
+     *
+     * Nur eine VORBELEGUNG, keine Bindung: Der Wert wird beim Oeffnen
+     * eingesetzt und danach wie jede andere Antwort gespeichert. Wer ihn
+     * ueberschreibt, behaelt seine Aenderung, auch wenn sich die Quelle
+     * spaeter aendert. Ein ausgedrucktes Formular soll den Stand vom
+     * Druckzeitpunkt zeigen, nicht den von heute.
+     *
+     * Welche Pfade es gibt, weiss nur die Anwendung — der Editor bekommt sie
+     * als Liste gereicht. Die Gegenstelle ist `FormularFeld::$quelle`.
+     */
+    quelle?: string;
 }
 
 /** Eine Spalte enthaelt Feldnamen, keine Felder. */

@@ -18,10 +18,14 @@ class DefinitionPruefer
     /**
      * @param  array<string, array{type?: string, begruendung?: string}>  $pflichtfelder
      * @param  array<int, string>  $namensfelder
+     * @param  array<int, string>  $quellen  Erlaubte Vorbelegungs-Quellen. Leer = der
+     *                                       Host bietet keine an, dann darf auch keine
+     *                                       gesetzt sein.
      */
     public function __construct(
         private readonly array $pflichtfelder = [],
         private readonly array $namensfelder = [],
+        private readonly array $quellen = [],
     ) {}
 
     /**
@@ -43,7 +47,45 @@ class DefinitionPruefer
             $this->namensfeldPruefen($neu),
             $this->doppelteNamenPruefen($neu),
             $this->verwaisendeFelderPruefen($neu, $bisher, $belegung),
+            $this->quellenPruefen($neu),
         );
+    }
+
+    /**
+     * Eine Quelle, die der Host nicht kennt, belegt nichts vor — und sagt es
+     * niemandem.
+     *
+     * Das ist der stillste Fehler, den dieses Feld haben kann: Das Formular
+     * sieht richtig aus, das Feld bleibt beim Oeffnen leer, und der Anwender
+     * haelt das fuer die Absicht. Ein Tippfehler in `order.delivery_date` faellt
+     * sonst erst auf, wenn jemand das Datum zum zwanzigsten Mal abgetippt hat.
+     *
+     * @return array<int, string>
+     */
+    private function quellenPruefen(FormularDefinition $neu): array
+    {
+        $meldungen = [];
+
+        foreach ($neu->felder as $feld) {
+            if ($feld->quelle === null || in_array($feld->quelle, $this->quellen, true)) {
+                continue;
+            }
+
+            $meldungen[] = $this->quellen === []
+                ? sprintf(
+                    'Das Feld „%s" soll aus „%s" vorbelegt werden, aber hier stehen keine Quellen zur Verfuegung.',
+                    $feld->name,
+                    $feld->quelle,
+                )
+                : sprintf(
+                    'Das Feld „%s" soll aus „%s" vorbelegt werden — diese Quelle gibt es nicht. Verfuegbar: %s.',
+                    $feld->name,
+                    $feld->quelle,
+                    implode(', ', $this->quellen),
+                );
+        }
+
+        return $meldungen;
     }
 
     /**
