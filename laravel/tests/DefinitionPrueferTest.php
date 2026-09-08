@@ -186,3 +186,25 @@ it('laesst die Quelle aus toArray weg, wenn keine gesetzt ist', function () {
     expect(definition([feld('bemerkung')])->feld('bemerkung')->toArray())
         ->not->toHaveKey('quelle');
 });
+
+/**
+ * Der Waechter nuetzt nichts, wenn ihn niemand mit der Liste versorgt.
+ *
+ * Genau das war er zwischenzeitlich: Der Konstruktor nahm `quellen`
+ * entgegen, der ServiceProvider reichte sie nicht durch, und die Pruefung
+ * lief in jeder Laravel-Anwendung gegen eine leere Liste — ein eingestellter
+ * Wert, den niemand abholt.
+ */
+it('bekommt die erlaubten Quellen aus der Konfiguration', function () {
+    // Nur die Quellen-Regel isolieren: Der Prueferer aus dem Container traegt
+    // sonst auch die Namensfeld-Regel, und die meldete hier zu Recht etwas
+    // ganz anderes.
+    config()->set('form-builder.quellen', ['order.delivery_date']);
+    config()->set('form-builder.namensfelder', []);
+    config()->set('form-builder.pflichtfelder', []);
+
+    $pruefer = app(DefinitionPruefer::class);
+
+    expect($pruefer->pruefen(definition([feld('a', ['quelle' => 'order.delivery_date'])])))->toBe([])
+        ->and($pruefer->pruefen(definition([feld('b', ['quelle' => 'order.tippfehler'])])))->toHaveCount(1);
+});

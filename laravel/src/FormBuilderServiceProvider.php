@@ -19,6 +19,7 @@ class FormBuilderServiceProvider extends ServiceProvider
         $this->app->singleton(DefinitionPruefer::class, fn ($app): DefinitionPruefer => new DefinitionPruefer(
             pflichtfelder: $app['config']->get('form-builder.pflichtfelder', []),
             namensfelder: $app['config']->get('form-builder.namensfelder', []),
+            quellen: $app['config']->get('form-builder.quellen', []),
         ));
 
         // Ebenfalls aus der Konfiguration: wie streng die abgeleiteten

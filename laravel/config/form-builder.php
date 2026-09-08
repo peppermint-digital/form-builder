@@ -27,6 +27,30 @@ return [
 
     /*
     |---------------------------------------------------------------------------
+    | Vorbelegungs-Quellen
+    |---------------------------------------------------------------------------
+    |
+    | Woraus sich ein Feld beim Oeffnen vorbelegen laesst — Pfade in die Daten
+    | dieser Anwendung. Nur was hier steht, darf im Baukasten gewaehlt werden.
+    |
+    | Die Liste ist bewusst eine Positivliste und nicht bloss ein Hinweis: Eine
+    | Quelle, die es nicht gibt, belegt nichts vor UND sagt es niemandem. Das
+    | Formular sieht richtig aus, das Feld bleibt leer, und der Anwender haelt
+    | das fuer die Absicht. Ein Tippfehler faellt sonst erst auf, wenn jemand
+    | dasselbe Datum zum zwanzigsten Mal abgetippt hat.
+    |
+    | Bleibt sie leer, ist die Vorbelegung abgeschaltet — die Auswahl erscheint
+    | im Baukasten gar nicht erst.
+    |
+    */
+
+    'quellen' => [
+        // 'order.delivery_date',
+        // 'order.project_name',
+    ],
+
+    /*
+    |---------------------------------------------------------------------------
     | Namensfelder
     |---------------------------------------------------------------------------
     |
