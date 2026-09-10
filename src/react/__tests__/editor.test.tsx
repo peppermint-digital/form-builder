@@ -192,6 +192,30 @@ describe('FormularEditor', () => {
         expect(onChange).not.toHaveBeenCalled();
     });
 
+    /*
+     * Bug #748: Das abgeschaltete Kreuz sah aus wie ein benutzbares — volle
+     * Deckkraft, `cursor: pointer`, dieselbe Farbe. Der einzige Hinweis stand
+     * im `title` und war ohne Mauszeiger nicht zu bekommen.
+     *
+     * In einer Zeile ist kein Platz fuer den ganzen Satz; der steht unter
+     * „Bearbeiten". Sichtbar sein muss aber, DASS gesperrt ist — sonst bleibt
+     * der tote Knopf unerklaert.
+     */
+    it('markiert eine gesperrte Zeile sichtbar als gesperrt (Bug #748)', () => {
+        render(
+            <FormularEditor
+                definition={definition(['termin'])}
+                onChange={() => {}}
+                gesperrteFelder={{ termin: 'Wird für die Rechnung gebraucht.' }}
+            />,
+        );
+
+        const marke = screen.getByText('gesperrt');
+
+        expect(marke).toBeDefined();
+        expect(marke.getAttribute('title')).toBe('Wird für die Rechnung gebraucht.');
+    });
+
     it('laesst die Beschriftung auch bei gesperrtem Schluessel frei', () => {
         render(
             <FormularEditor

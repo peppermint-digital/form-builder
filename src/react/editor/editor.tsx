@@ -319,6 +319,26 @@ export default function FormularEditor({
                                                             {feld.required && (
                                                                 <span className="pm-fb-pflicht"> *</span>
                                                             )}
+                                                            {/*
+                                                                Eine Zeile ist zu eng fuer die ganze
+                                                                Begruendung — die steht unter
+                                                                „Bearbeiten". Sichtbar sein muss aber,
+                                                                DASS gesperrt ist: sonst wirkt das
+                                                                abgeschaltete Kreuz daneben wie ein
+                                                                kaputter Knopf (Bug #748). Dieselbe
+                                                                Marke benutzt die Struktur-Ansicht.
+                                                            */}
+                                                            {name in gesperrteFelder && (
+                                                                <>
+                                                                    {' '}
+                                                                    <span
+                                                                        className="pm-fb-sperre__marke"
+                                                                        title={gesperrteFelder[name]}
+                                                                    >
+                                                                        gesperrt
+                                                                    </span>
+                                                                </>
+                                                            )}
                                                         </span>
                                                         <span className="pm-fb-karte__knoepfe">
                                                             <button

@@ -59,6 +59,20 @@ export interface FormularFeldEingabeProps {
      * Feld, das er gar nicht ausfuellen muss.
      */
     pflicht?: boolean;
+    /**
+     * Ob der Renderer die Beschriftung selbst zeichnet. Vorgabe: ja.
+     *
+     * Auf `false` fuer Masken, die ihre Beschriftungen schon zeichnen — etwa
+     * weil sie eigene Feldtypen daneben stellen und alle Zeilen gleich
+     * aussehen sollen. Ohne diesen Schalter stuende das Label zweimal
+     * untereinander: einmal von der Maske, einmal von hier (Bug #748).
+     *
+     * Bewusst ein Schalter und keine Erkennung: Ob eine Maske ein Label
+     * zeichnet, kann dieser Renderer nicht sehen. Eine Vermutung waere in
+     * beide Richtungen falsch — mal fehlte die Beschriftung, mal stuende sie
+     * doppelt.
+     */
+    beschriftung?: boolean;
 }
 
 /** Welchen HTML-Typ ein Feld bekommt. */
@@ -91,6 +105,7 @@ export default function FormularFeldEingabe({
     idPrefix = '',
     autoFocus = false,
     pflicht,
+    beschriftung = true,
 }: FormularFeldEingabeProps) {
     const istPflicht = pflicht ?? feld.required === true;
     const id = `${idPrefix}${feld.name}`;
@@ -251,7 +266,7 @@ export default function FormularFeldEingabe({
 
     return (
         <div className="pm-fb-feld">
-            {!labelImFeld && (
+            {beschriftung && !labelImFeld && (
                 <Beschriftung htmlFor={id} required={istPflicht}>
                     {feld.label}
                 </Beschriftung>

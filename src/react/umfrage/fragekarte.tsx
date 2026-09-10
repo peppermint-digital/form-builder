@@ -128,6 +128,18 @@ export default function Fragekarte({
             </header>
 
             {/*
+                Die Begründung einer Sperre gehört sichtbar auf die Karte.
+
+                Vorher stand sie ausschließlich im `title` des Löschen-Knopfs.
+                Ein Tooltip setzt einen Mauszeiger voraus; auf dem Telefon gibt
+                es keinen. Wer dort auf „Löschen" tippte, sah nichts geschehen
+                und hatte keine Möglichkeit herauszufinden, warum (Bug #748).
+            */}
+            {sperrgrund !== undefined && (
+                <p className="pm-fb-sperre">{sperrgrund}</p>
+            )}
+
+            {/*
                 Die Frage selbst, groß und ohne Beschriftung darüber. Sie IST
                 die Überschrift der Karte — ein Label „Beschriftung" davor wäre
                 eine Zeile, die nichts sagt.

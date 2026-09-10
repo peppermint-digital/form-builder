@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { FormularFeld } from '../../core';
+import FormularFeldEingabe from '../feld';
 import FormularRenderer from '../formular';
 import type { EigenerFeldTypProps, TextEingabeProps } from '../typen';
 
@@ -147,5 +148,61 @@ describe('FormularRenderer', () => {
         zeichne({ definition: { fields: [feld('neu', { type: 'was_auch_immer' })] } });
 
         expect(screen.getByLabelText('neu').getAttribute('type')).toBe('text');
+    });
+});
+
+/*
+ * Bug #748: Auf dem öffentlichen Anmeldeformular stand jede Beschriftung
+ * zweimal untereinander — „Vorname *" und darunter noch einmal „Vorname".
+ *
+ * Ursache war kein Fehler in diesem Renderer, sondern eine Maske daneben, die
+ * ihre Labels selbst zeichnet. Vor dem 10.09.2026 lief sie über einen eigenen
+ * Renderer ohne Label; danach über diesen, der eines zeichnet. Niemandem fiel
+ * auf, dass die beiden sich darin unterscheiden.
+ *
+ * Der Schalter macht die Frage beantwortbar, statt sie zu erraten.
+ */
+describe('Beschriftung des Feld-Renderers', () => {
+    it('zeichnet die Beschriftung standardmässig selbst', () => {
+        render(
+            <FormularFeldEingabe
+                feld={feld('vorname', { label: 'Vorname' })}
+                wert=""
+                onChange={() => {}}
+            />,
+        );
+
+        expect(screen.getByText('Vorname')).toBeTruthy();
+    });
+
+    it('laesst sie weg, wenn die Maske ihre eigene zeichnet', () => {
+        render(
+            <FormularFeldEingabe
+                feld={feld('vorname', { label: 'Vorname' })}
+                wert=""
+                onChange={() => {}}
+                beschriftung={false}
+            />,
+        );
+
+        // Kein Label — die Eingabe selbst steht weiterhin da.
+        expect(screen.queryByText('Vorname')).toBeNull();
+        expect(document.querySelector('input')).toBeTruthy();
+    });
+
+    it('zeichnet auch ohne Beschriftung noch Hinweis und Fehler', () => {
+        // Der Schalter gilt der Beschriftung — nicht allem, was darunter steht.
+        render(
+            <FormularFeldEingabe
+                feld={feld('vorname', { label: 'Vorname', hinweis: 'Wie im Ausweis.' })}
+                wert=""
+                onChange={() => {}}
+                fehler="Pflichtfeld"
+                beschriftung={false}
+            />,
+        );
+
+        expect(screen.getByText('Wie im Ausweis.')).toBeTruthy();
+        expect(screen.getByText('Pflichtfeld')).toBeTruthy();
     });
 });

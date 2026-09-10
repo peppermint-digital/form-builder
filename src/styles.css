@@ -396,6 +396,47 @@
     color: #dc2626;
 }
 
+/*
+ * Ein abgeschalteter Knopf muss abgeschaltet AUSSEHEN.
+ *
+ * Bis zum 10.09.2026 gab es im ganzen Paket keinen einzigen `:disabled`-Stil.
+ * Der Loeschen-Knopf eines gesperrten Feldes war dadurch von einem
+ * klickbaren nicht zu unterscheiden: volle Deckkraft, dieselbe Farbe,
+ * `cursor: pointer`. Wer darauf klickte, sah nichts geschehen und meldete
+ * einen kaputten Knopf (Bug #748) — voellig zu Recht, denn ein Steuerelement,
+ * das aussieht wie benutzbar und nicht reagiert, IST kaputt.
+ *
+ * Es betraf nicht nur das Loeschen: die Pfeile der ersten und der letzten
+ * Frage sind ebenfalls abgeschaltet und sahen genauso aus.
+ */
+.pm-fb-knopf:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/*
+ * Die Begruendung einer Sperre — sichtbar, nicht im Tooltip.
+ *
+ * Ein `title` setzt einen Mauszeiger voraus. Auf dem Telefon gibt es keinen,
+ * und dort bleibt ein abgeschalteter Knopf eine Sackgasse ohne Erklaerung.
+ */
+.pm-fb-sperre {
+    margin: 0 0 0.75rem;
+    font-size: 0.875rem;
+    opacity: 0.75;
+}
+
+/*
+ * Dieselbe schlichte Marke, die die Struktur-Ansicht schon benutzt
+ * (`.pm-fb-knoten__sperre`). Eine dritte Gestaltung fuer denselben Zustand
+ * waere eine Variante ohne Gewinn — wer sie in einer Ansicht gelernt hat,
+ * soll sie in der naechsten wiedererkennen.
+ */
+.pm-fb-sperre__marke {
+    cursor: help;
+    opacity: 0.75;
+}
+
 /* Gruppen und Schritte ------------------------------------------------- */
 
 .pm-fb-gruppe {

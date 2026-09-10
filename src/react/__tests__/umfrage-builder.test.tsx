@@ -163,6 +163,28 @@ describe('UmfrageBuilder', () => {
 
         fireEvent.click(screen.getAllByRole('button', { name: 'Erweitert' })[0]!);
         expect((screen.getByDisplayValue('f1') as HTMLInputElement).disabled).toBe(true);
+    });
+
+    /*
+     * Bug #748: Chris meldete „das Löschen funktioniert nicht". Der Knopf war
+     * abgeschaltet — richtig, unter dem Feld lagen Antworten —, aber der Grund
+     * stand ausschließlich im `title`. Ein Tooltip braucht einen Mauszeiger;
+     * auf dem Telefon gibt es keinen. Aus Sicht des Benutzers war der Knopf
+     * schlicht kaputt.
+     *
+     * `getByText` prüft genau das, was ein Tooltip NICHT erfüllt: der Satz
+     * steht im Dokument, ohne dass jemand etwas aufklappen oder überfahren
+     * muss.
+     */
+    it('nennt den Grund der Sperre sichtbar, ohne Aufklappen (Bug #748)', () => {
+        render(
+            <UmfrageBuilder
+                definition={basis()}
+                onChange={() => {}}
+                gesperrteFelder={{ f1: 'Darunter liegen bereits Antworten.' }}
+            />,
+        );
+
         expect(screen.getByText('Darunter liegen bereits Antworten.')).toBeTruthy();
     });
 });
