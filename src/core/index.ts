@@ -22,6 +22,16 @@ export {
     zeileVonFeld,
 } from './bearbeiten';
 export type { Ablageziel } from './bearbeiten';
+export {
+    naechsteRegelkennung,
+    pruefungAendern,
+    pruefungAnlegen,
+    pruefungEntfernen,
+    regelAendern,
+    regelAnlegen,
+    regelEntfernen,
+    regelnFuerZiel,
+} from './bedingungen';
 export { feldDuplizieren, feldUmordnen } from './bearbeiten';
 export {
     listeLesen,

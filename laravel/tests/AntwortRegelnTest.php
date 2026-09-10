@@ -32,7 +32,39 @@ it('bindet eine Auswahlliste an ihre Optionen', function () {
 
     // Ohne diese Regel koennte jeder per manipuliertem Formular beliebige
     // Werte in die Auswertung schreiben.
+    //
+    // GEQUOTET, seit `optionenQuoten` da ist: Die Vorgabe des Pakets ist die
+    // strenge. Vorher stand hier `in:Frau,Herr` — dieser Test hielt damit die
+    // Fassung fest, in der eine Option „Ja, gerne" an ihrem Komma zerfiel.
+    expect($regeln['anrede'])->toContain('in:"Frau","Herr"');
+    expect(validator(['anrede' => 'Frau'], $regeln)->fails())->toBeFalse();
+    expect(validator(['anrede' => 'Ausgedacht'], $regeln)->fails())->toBeTrue();
+});
+
+it('laesst die Optionen ungequotet, wenn eine Anwendung ihren Bestand schuetzt', function () {
+    $regeln = AntwortRegeln::fuer(
+        def([['name' => 'anrede', 'label' => 'Anrede', 'type' => 'select', 'options' => ['Frau', 'Herr']]]),
+        '',
+        new RegelEinstellungen(optionenQuoten: false),
+    );
+
+    // Der Weg fuer eine Anwendung mit gewachsenem Bestand: Die Reparatur ist
+    // eine Verschaerfung — wer heute „Ja" unterschiebt, kommt durch, danach
+    // nicht mehr. Das ist richtig, aber es ist eine eigene Entscheidung mit
+    // eigener Messung.
     expect($regeln['anrede'])->toContain('in:Frau,Herr');
+});
+
+it('haelt eine Option mit Komma auch bei select zusammen', function () {
+    $regeln = AntwortRegeln::fuer(def([
+        ['name' => 'essen', 'label' => 'Essen', 'type' => 'radio', 'options' => ['Ja, gerne', 'Nein danke']],
+    ]));
+
+    // Der eigentliche Bug (#723): Unquotiert zerfaellt „Ja, gerne" in „Ja" und
+    // „ gerne" — die Regel verbietet die echte Antwort und erlaubt zwei
+    // erfundene. Beides falsch herum.
+    expect(validator(['essen' => 'Ja, gerne'], $regeln)->fails())->toBeFalse();
+    expect(validator(['essen' => 'Ja'], $regeln)->fails())->toBeTrue();
 });
 
 it('laesst den leeren Eintrag aus dem Zeilenumbruch nicht in die Regel', function () {
@@ -40,7 +72,19 @@ it('laesst den leeren Eintrag aus dem Zeilenumbruch nicht in die Regel', functio
         ['name' => 'anrede', 'label' => 'Anrede', 'type' => 'select', 'options' => ['Frau', 'Herr', '']],
     ]));
 
-    expect($regeln['anrede'])->toContain('in:Frau,Herr');
+    expect($regeln['anrede'])->toContain('in:"Frau","Herr"');
+
+    // Die Wirkung zeigt sich am PFLICHTfeld. Bei einem freiwilligen ueberspringt
+    // Laravel `in:` fuer leere Werte — voellig richtig, es ist ja freiwillig.
+    // Ohne die Bereinigung stuende der leere Eintrag in der Regel, und ein
+    // Pflichtfeld waere mit „nichts" erfuellbar.
+    $pflicht = AntwortRegeln::fuer(def([
+        ['name' => 'anrede', 'label' => 'Anrede', 'type' => 'select',
+            'options' => ['Frau', 'Herr', ''], 'required' => true],
+    ]));
+
+    expect(validator(['anrede' => ''], $pflicht)->fails())->toBeTrue();
+    expect(validator(['anrede' => 'Frau'], $pflicht)->fails())->toBeFalse();
 });
 
 it('verlangt bei einem Pflicht-Ankreuzfeld die Zustimmung, nicht nur Anwesenheit', function () {

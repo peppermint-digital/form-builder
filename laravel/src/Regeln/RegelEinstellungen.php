@@ -36,12 +36,28 @@ class RegelEinstellungen
      *                                     `required` allein laesst '0' durch — die
      *                                     Zustimmung waere erteilt, ohne dass
      *                                     jemand geklickt hat.
+     * @param  bool  $optionenQuoten  Quotet die Werte in der `in:`-Regel von
+     *                                `select` und `radio`.
+     *
+     *   Laravels `in:` trennt an Kommas. Eine Option „Ja, gerne" zerfaellt
+     *   unquotiert in „Ja" und „ gerne": Die Regel erlaubt dann zwei Werte, die
+     *   es nicht gibt, und verbietet den, den es gibt.
+     *
+     *   Auf einem Bestand ist die Reparatur eine VERSCHAERFUNG. Wer heute „Ja"
+     *   unterschiebt, kommt durch; nach dem Umschalten nicht mehr. Das ist
+     *   richtig — aber es weist ab diesem Moment Eingaben ab, die gestern
+     *   durchgingen, und deshalb gehoert eine Messung davor: Wie viele
+     *   gespeicherte Optionen tragen ueberhaupt ein Komma?
+     *
+     *   `checkboxes` quotet IMMER und haengt nicht an diesem Schalter — der Typ
+     *   ist neu, es gibt keinen Bestand, den eine strenge Regel treffen koennte.
      */
     public function __construct(
         public readonly int $maxText = 255,
         public readonly ?int $maxFliesstext = null,
         public readonly bool $typpruefung = true,
         public readonly bool $zustimmungErzwingen = true,
+        public readonly bool $optionenQuoten = true,
     ) {}
 
     /**
@@ -62,6 +78,7 @@ class RegelEinstellungen
             maxFliesstext: is_numeric($maxFliesstext) ? (int) $maxFliesstext : null,
             typpruefung: (bool) ($konfiguration['typpruefung'] ?? true),
             zustimmungErzwingen: (bool) ($konfiguration['zustimmung_erzwingen'] ?? true),
+            optionenQuoten: (bool) ($konfiguration['optionen_quoten'] ?? true),
         );
     }
 }

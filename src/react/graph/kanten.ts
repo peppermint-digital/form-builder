@@ -4,7 +4,36 @@ import type {
     FormularDefinition,
     Knotenposition,
 } from '../../core';
+// Die reine Datenarbeit an den Regeln liegt im Kern — sie ist keine Graphik,
+// und eine zweite Ansicht muss sie bedienen koennen, ohne React Flow zu laden.
+import { regelAnlegen, regelEntfernen } from '../../core';
 import { knotenId, knotenRef, naechsteKennung, zielArtVon } from './kennung';
+
+/*
+ * Weitergereicht, damit der Graph-Einstiegspunkt seine Schnittstelle behaelt.
+ * Wer bisher `regelAnlegen` aus `./kanten` geholt hat, bekommt dieselbe
+ * Funktion — sie wohnt nur woanders.
+ */
+export { regelAnlegen, regelEntfernen };
+
+/**
+ * Entfernt einen Schluessel ganz, statt ihn leer stehen zu lassen.
+ *
+ * Ein `flow: []` waere ein Unterschied in der gespeicherten Definition, den
+ * niemand gemacht hat — und er taucht in jedem Vergleich auf.
+ *
+ * Fuer `conditions` macht der Kern dasselbe; hier bleibt es, weil die
+ * Ablaufkanten (`flow`) Graphik-Sache sind und nur hier bearbeitet werden.
+ */
+function ohneSchluessel(
+    definition: FormularDefinition,
+    schluessel: 'conditions' | 'flow',
+): FormularDefinition {
+    const kopie = { ...definition };
+    delete kopie[schluessel];
+
+    return kopie;
+}
 import { MASSE } from './anordnung';
 
 export interface GraphKante {
@@ -199,40 +228,6 @@ export function verbindungVerarbeiten(
     return regelAnlegen(definition, quelle.ref, { kind: zielArt, ref: ziel.ref });
 }
 
-export function regelAnlegen(
-    definition: FormularDefinition,
-    feld: string,
-    ziel: Bedingungsregel['target'],
-): FormularDefinition {
-    const vorhanden = definition.conditions ?? [];
-
-    // Dieselbe Verbindung zweimal ziehen soll keine zweite Regel anlegen —
-    // sie waere deckungsgleich und im Graphen nicht zu unterscheiden.
-    const doppelt = vorhanden.some(
-        (regel) =>
-            regel.target.kind === ziel.kind &&
-            regel.target.ref === ziel.ref &&
-            regel.tests.length === 1 &&
-            regel.tests[0]?.field === feld,
-    );
-
-    if (doppelt) {
-        return definition;
-    }
-
-    const regel: Bedingungsregel = {
-        id: naechsteKennung(
-            vorhanden.map((eintrag) => eintrag.id),
-            'r',
-        ),
-        target: ziel,
-        effect: 'show',
-        match: 'all',
-        tests: [{ field: feld, op: 'filled' }],
-    };
-
-    return { ...definition, conditions: [...vorhanden, regel] };
-}
 
 export function ablaufAnlegen(
     definition: FormularDefinition,
@@ -313,31 +308,4 @@ export function kanteEntfernen(
         : ohneSchluessel(definition, 'conditions');
 }
 
-export function regelEntfernen(
-    definition: FormularDefinition,
-    regelId: string,
-): FormularDefinition {
-    const uebrig = (definition.conditions ?? []).filter(
-        (regel) => regel.id !== regelId,
-    );
 
-    return uebrig.length > 0
-        ? { ...definition, conditions: uebrig }
-        : ohneSchluessel(definition, 'conditions');
-}
-
-/**
- * Entfernt einen Schluessel ganz, statt ihn leer stehen zu lassen.
- *
- * Ein `conditions: []` waere ein Unterschied in der gespeicherten Definition,
- * den niemand gemacht hat — und er taucht in jedem Vergleich auf.
- */
-function ohneSchluessel(
-    definition: FormularDefinition,
-    schluessel: 'conditions' | 'flow',
-): FormularDefinition {
-    const kopie = { ...definition };
-    delete kopie[schluessel];
-
-    return kopie;
-}

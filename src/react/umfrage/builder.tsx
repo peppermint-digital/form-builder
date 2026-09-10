@@ -112,7 +112,13 @@ export default function UmfrageBuilder({
             {felder.map((feld, index) => (
                 <Fragekarte
                     key={feld.name}
+                    definition={gelesen}
                     feld={feld}
+                    // Nur die Fragen DAVOR. Eine Bedingung auf eine spaetere
+                    // waere im Formular nie erfuellt — sie saehe im Editor
+                    // plausibel aus und taete nie etwas.
+                    vorgaenger={felder.slice(0, index)}
+                    onDefinition={onChange}
                     nummer={index + 1}
                     anzahl={felder.length}
                     woerter={woerter}

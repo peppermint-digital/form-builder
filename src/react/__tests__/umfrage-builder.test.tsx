@@ -166,3 +166,151 @@ describe('UmfrageBuilder', () => {
         expect(screen.getByText('Darunter liegen bereits Antworten.')).toBeTruthy();
     });
 });
+
+describe('Bedingungen an der Frage', () => {
+    const mitJaNein = (): FormularDefinition => ({
+        fields: [
+            { name: 'kommst', label: 'Kommst du?', type: 'radio', options: ['Ja', 'Nein'] },
+            { name: 'warum_nicht', label: 'Warum nicht?', type: 'textarea' },
+        ],
+        layout: [
+            { type: 'row', columns: [['kommst']] },
+            { type: 'row', columns: [['warum_nicht']] },
+        ],
+    });
+
+    const oeffneLogik = (nummer: number) =>
+        fireEvent.click(screen.getAllByRole('button', { name: /Wann zeigen\?/ })[nummer]!);
+
+    it('sagt bei der ersten Frage, dass sie von nichts abhaengen kann', () => {
+        zeichne(mitJaNein());
+        oeffneLogik(0);
+
+        // Eine Frage kann nur von etwas abhängen, das schon beantwortet ist.
+        expect(screen.getByText(/kann von nichts abhängen/)).toBeTruthy();
+    });
+
+    it('legt eine Bedingung an, die auf die vorige Frage zeigt', () => {
+        const onChange = zeichne(mitJaNein());
+        oeffneLogik(1);
+
+        fireEvent.click(screen.getByRole('button', { name: '+ Bedingung' }));
+
+        const neu: FormularDefinition = onChange.mock.calls[0]![0];
+        expect(neu.conditions).toHaveLength(1);
+        expect(neu.conditions![0]).toMatchObject({
+            target: { kind: 'field', ref: 'warum_nicht' },
+            effect: 'show',
+            tests: [{ field: 'kommst', op: 'filled' }],
+        });
+    });
+
+    it('bietet als Quelle nur die Fragen DAVOR an', () => {
+        const mit = mitJaNein();
+        mit.conditions = [
+            {
+                id: 'r1',
+                target: { kind: 'field', ref: 'warum_nicht' },
+                effect: 'show',
+                match: 'all',
+                tests: [{ field: 'kommst', op: 'is', value: 'Nein' }],
+            },
+        ];
+
+        zeichne(mit);
+        oeffneLogik(1);
+
+        const quelle = screen.getByLabelText('Frage') as HTMLSelectElement;
+        const werte = [...quelle.options].map((o) => o.value);
+
+        // „warum_nicht" darf nicht von sich selbst oder von einer späteren
+        // Frage abhängen — das wäre eine Regel, die nie zutrifft.
+        expect(werte).toEqual(['kommst']);
+    });
+
+    it('bietet bei einer Auswahlfrage die Optionen an, statt tippen zu lassen', () => {
+        const mit = mitJaNein();
+        mit.conditions = [
+            {
+                id: 'r1',
+                target: { kind: 'field', ref: 'warum_nicht' },
+                effect: 'show',
+                match: 'all',
+                tests: [{ field: 'kommst', op: 'is', value: 'Nein' }],
+            },
+        ];
+
+        zeichne(mit);
+        oeffneLogik(1);
+
+        // Ein Tippfehler erzeugt sonst eine Regel, die im Editor richtig
+        // aussieht und im Formular nie zutrifft.
+        const wert = screen.getByLabelText('Wert') as HTMLSelectElement;
+        expect([...wert.options].map((o) => o.value)).toEqual(['', 'Ja', 'Nein']);
+        expect(wert.value).toBe('Nein');
+    });
+
+    it('nimmt den Vergleichswert weg, sobald er nichts mehr bedeutet', () => {
+        const mit = mitJaNein();
+        mit.conditions = [
+            {
+                id: 'r1',
+                target: { kind: 'field', ref: 'warum_nicht' },
+                effect: 'show',
+                match: 'all',
+                tests: [{ field: 'kommst', op: 'is', value: 'Nein' }],
+            },
+        ];
+
+        const onChange = zeichne(mit);
+        oeffneLogik(1);
+
+        fireEvent.change(screen.getByLabelText('Vergleich'), {
+            target: { value: 'filled' },
+        });
+
+        // Ein `value`, das neben `filled` stehenbleibt, ist eine Angabe, die
+        // nichts bedeutet — und die der nächste Leser anders auslegt.
+        const neu: FormularDefinition = onChange.mock.calls[0]![0];
+        expect(neu.conditions![0]!.tests[0]).toEqual({ field: 'kommst', op: 'filled' });
+    });
+
+    it('warnt, dass eine zeigen-Regel die Vorgabe umdreht', () => {
+        const mit = mitJaNein();
+        mit.conditions = [
+            {
+                id: 'r1',
+                target: { kind: 'field', ref: 'warum_nicht' },
+                effect: 'show',
+                match: 'all',
+                tests: [{ field: 'kommst', op: 'is', value: 'Nein' }],
+            },
+        ];
+
+        zeichne(mit);
+        oeffneLogik(1);
+
+        // Wer das nicht weiß, legt zwei Regeln an und wundert sich, dass die
+        // Frage verschwindet.
+        expect(screen.getByText(/verborgen, bis eine davon zutrifft/)).toBeTruthy();
+    });
+
+    it('zeigt an der Frage, wie viele Bedingungen auf sie wirken', () => {
+        const mit = mitJaNein();
+        mit.conditions = [
+            {
+                id: 'r1',
+                target: { kind: 'field', ref: 'warum_nicht' },
+                effect: 'show',
+                match: 'all',
+                tests: [{ field: 'kommst', op: 'is', value: 'Nein' }],
+            },
+        ];
+
+        zeichne(mit);
+
+        // Ohne die Zahl müsste man jede Frage aufklappen, um zu sehen, ob eine
+        // Regel daran hängt.
+        expect(screen.getByRole('button', { name: 'Wann zeigen? (1)' })).toBeTruthy();
+    });
+});

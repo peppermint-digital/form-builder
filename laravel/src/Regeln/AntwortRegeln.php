@@ -152,7 +152,7 @@ class AntwortRegeln
         // Regel kann jeder per Formular-Manipulation beliebige Werte in die
         // Auswertung schreiben.
         if ($feld->istAuswahl() && $feld->optionen() !== []) {
-            $regeln[] = 'in:'.implode(',', $feld->optionen());
+            $regeln[] = self::inRegel($feld->optionen(), $einstellungen->optionenQuoten);
         }
 
         if (in_array($feld->type, ['text', 'tel', 'email'], true)) {
@@ -176,28 +176,42 @@ class AntwortRegeln
             return $regeln;
         }
 
-        // Die Werte werden GEQUOTET, anders als bei `select`/`radio` weiter
-        // oben. Das ist kein Versehen und auch keine Uneinheitlichkeit aus
-        // Bequemlichkeit:
-        //
-        // `in:` trennt an Kommas. Eine Option „Ja, gerne" zerfaellt
-        // unquotiert in „Ja" und „ gerne" — die Regel erlaubt dann zwei Werte,
-        // die es nicht gibt, und verbietet den, den es gibt. Das trifft
-        // `select` und `radio` seit jeher (siehe Bug-Vermerk im Paket).
-        //
-        // Dort ist es NICHT hier mitrepariert worden, weil die Reparatur eine
-        // Verschaerfung gegen den Bestand waere: Ab dem Ausrollen wiese die
-        // Anmeldung Eingaben ab, die am Tag davor durchgingen. Genau davor
-        // warnt `config/form-builder.php` ausfuehrlich. Bei `checkboxes` gibt
-        // es keinen Bestand — der Typ ist neu —, also faengt er richtig an.
+        // IMMER gequotet, ohne Schalter: `checkboxes` ist ein neuer Typ, es
+        // gibt keinen Bestand, den eine strenge Regel treffen koennte. Bei
+        // `select`/`radio` haengt dasselbe an `optionenQuoten` — dort gibt es
+        // einen.
+        $regeln[] = self::inRegel($optionen, true);
+
+        return $regeln;
+    }
+
+    /**
+     * Die `in:`-Regel fuer eine Optionsliste.
+     *
+     * Laravels `in:` trennt an Kommas. Eine Option „Ja, gerne" zerfaellt
+     * unquotiert in „Ja" und „ gerne": Die Regel erlaubt dann zwei Werte, die
+     * es nicht gibt, und verbietet den, den es gibt.
+     *
+     * Gequotet wird wie `Rule::in()` es tut — Anfuehrungszeichen im Wert
+     * werden verdoppelt. Der Rueckgabewert bleibt eine ZEICHENKETTE und kein
+     * `Rule`-Objekt: Der Vertrag dieser Klasse ist
+     * `array<string, array<int, string>>`, und ein Objekt darin wuerde jeden
+     * Abnehmer brechen, der die Regeln weiterreicht oder protokolliert.
+     *
+     * @param  array<int, string>  $optionen
+     */
+    private static function inRegel(array $optionen, bool $quoten): string
+    {
+        if (! $quoten) {
+            return 'in:'.implode(',', $optionen);
+        }
+
         $gequotet = array_map(
             fn (string $option): string => '"'.str_replace('"', '""', $option).'"',
             $optionen,
         );
 
-        $regeln[] = 'in:'.implode(',', $gequotet);
-
-        return $regeln;
+        return 'in:'.implode(',', $gequotet);
     }
 
     /**

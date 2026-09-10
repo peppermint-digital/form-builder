@@ -1,7 +1,8 @@
 import { useState } from 'react';
 
-import { STUFEN_MAX, STUFEN_MIN, STUFEN_VORGABE } from '../../core';
-import type { FormularFeld } from '../../core';
+import { regelnFuerZiel, STUFEN_MAX, STUFEN_MIN, STUFEN_VORGABE } from '../../core';
+import type { FormularDefinition, FormularFeld } from '../../core';
+import Bedingungen from './bedingungen';
 import Optionsliste from './optionsliste';
 import type { Typvorschlag } from './typwahl';
 
@@ -12,7 +13,12 @@ export interface Woerter {
 }
 
 interface Props {
+    /** Die ganze Definition — die Bedingungen leben dort, nicht am Feld. */
+    definition: FormularDefinition;
     feld: FormularFeld;
+    /** Alle Fragen VOR dieser. Nur die koennen ueber sie entscheiden. */
+    vorgaenger: FormularFeld[];
+    onDefinition: (definition: FormularDefinition) => void;
     nummer: number;
     anzahl: number;
     woerter: Woerter;
@@ -42,7 +48,10 @@ const MIT_OPTIONEN = ['select', 'radio', 'checkboxes'];
  * gespeicherten Antworten unauffindbar, ohne dass sichtbar etwas kaputtgeht.
  */
 export default function Fragekarte({
+    definition,
     feld,
+    vorgaenger,
+    onDefinition,
     nummer,
     anzahl,
     woerter,
@@ -55,7 +64,9 @@ export default function Fragekarte({
     onRunter,
 }: Props) {
     const [erweitert, setErweitert] = useState(false);
+    const [logikOffen, setLogikOffen] = useState(false);
     const typ = typen.find((t) => t.wert === feld.type);
+    const regeln = regelnFuerZiel(definition, 'field', feld.name);
 
     return (
         <article className="pm-fb-frage">
@@ -197,14 +208,43 @@ export default function Fragekarte({
                 </p>
             )}
 
-            <button
-                type="button"
-                className="pm-fb-knopf pm-fb-knopf--still pm-fb-frage__mehr"
-                aria-expanded={erweitert}
-                onClick={() => setErweitert(!erweitert)}
-            >
-                {erweitert ? 'Weniger' : 'Erweitert'}
-            </button>
+            <div className="pm-fb-frage__leiste">
+                {/*
+                    „Wann zeigen?" steht neben „Erweitert" und nicht darin: Es
+                    ist eine fachliche Frage, die jemand beim Schreiben der
+                    Frage hat — nicht eine Einstellung, die man einmal setzt
+                    und vergisst. Die Zahl daneben macht sichtbar, dass es
+                    schon eine Regel gibt, ohne dass man aufklappen muss.
+                */}
+                <button
+                    type="button"
+                    className="pm-fb-knopf pm-fb-knopf--still"
+                    aria-expanded={logikOffen}
+                    onClick={() => setLogikOffen(!logikOffen)}
+                >
+                    Wann zeigen?
+                    {regeln.length > 0 && ` (${regeln.length})`}
+                </button>
+
+                <button
+                    type="button"
+                    className="pm-fb-knopf pm-fb-knopf--still"
+                    aria-expanded={erweitert}
+                    onClick={() => setErweitert(!erweitert)}
+                >
+                    {erweitert ? 'Weniger' : 'Erweitert'}
+                </button>
+            </div>
+
+            {logikOffen && (
+                <Bedingungen
+                    definition={definition}
+                    feld={feld}
+                    vorgaenger={vorgaenger}
+                    woerter={woerter}
+                    onChange={onDefinition}
+                />
+            )}
 
             {erweitert && (
                 <div className="pm-fb-frage__erweitert">

@@ -794,3 +794,51 @@
     min-height: 2.75rem;
     min-width: 2.75rem;
 }
+
+.pm-fb-frage__leiste {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.pm-fb-bedingungen {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    border-left: 3px solid currentColor;
+    padding-left: 0.75rem;
+}
+
+.pm-fb-regel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    border: 1px solid currentColor;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    min-width: 0;
+}
+
+.pm-fb-regel__kopf,
+.pm-fb-regel__pruefung {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.pm-fb-regel__pruefung .pm-fb-eingabe {
+    flex: 1;
+    min-width: 8rem;
+}
+
+.pm-fb-eingabe--schmal {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 0;
+}
+
+.pm-fb-bedingungen .pm-fb-knopf {
+    min-height: 2.75rem;
+    align-self: start;
+}
