@@ -1,8 +1,10 @@
 import type {
     Ablaufkante,
     Bedingungsregel,
+    Feldwert,
     FormularDefinition,
     FormularFeld,
+    LayoutGruppe,
     LayoutKnoten,
     LayoutZeile,
     Pruefung,
@@ -163,6 +165,93 @@ export function nutzbareOptionen(feld: FormularFeld): string[] {
 }
 
 /**
+ * Der Wert als Text — die Lesart fuer alle Bausteine ausser der Liste.
+ *
+ * Eine Liste wird dabei NICHT zusammengefuegt, sondern zu ''. Das ist Absicht:
+ * `'a,b'` in einem Textfeld sieht aus wie eine Antwort, ist aber keine, die
+ * jemand gegeben hat — und beim naechsten Speichern stuende sie als Text da,
+ * wo eine Liste hingehoert.
+ */
+export function textLesen(wert: Feldwert | null | undefined): string {
+    if (wert === null || wert === undefined || Array.isArray(wert)) {
+        return '';
+    }
+
+    return String(wert);
+}
+
+/**
+ * Der Wert als Liste — die Lesart der Mehrfachauswahl.
+ *
+ * Eine einzelne Zeichenkette wird zu einer einelementigen Liste. Der Fall
+ * tritt auf, wenn jemand ein `radio`-Feld nachtraeglich auf `checkboxes`
+ * umstellt: Die gespeicherten Antworten sind dann Text, und ohne diesen Zweig
+ * verschwaende das Kreuz beim Oeffnen der Maske stillschweigend.
+ */
+export function listeLesen(wert: Feldwert | null | undefined): string[] {
+    if (wert === null || wert === undefined || wert === '') {
+        return [];
+    }
+
+    if (Array.isArray(wert)) {
+        return wert.map((e) => String(e)).filter((e) => e !== '');
+    }
+
+    return [String(wert)];
+}
+
+/** Ob bei diesem Wert ueberhaupt etwas beantwortet wurde. */
+export function wertLeer(wert: Feldwert | null | undefined): boolean {
+    return Array.isArray(wert) ? wert.length === 0 : (wert ?? '') === '';
+}
+
+/**
+ * Die Stufen einer Skala als Zeichenketten — '1' bis n.
+ *
+ * Die Grenzen sind dieselben wie auf der PHP-Seite (`FormularFeld::STUFEN_*`).
+ * Der Wert kommt aus einer JSON-Spalte und damit von aussen: ohne Begrenzung
+ * erzeugte `stufen: 5000` fuenftausend Knoepfe im Formular.
+ */
+export const STUFEN_VORGABE = 5;
+export const STUFEN_MIN = 2;
+export const STUFEN_MAX = 11;
+
+/**
+ * Die Werte eines NPS: '0' bis '10'.
+ *
+ * Elf Stufen, aber NICHT `stufen: 11` — eine Skala laeuft '1'…'n' und kann
+ * keine Null ausdruecken. Das ist kein Schoenheitsfehler: Promotor ist 9–10,
+ * Detraktor 0–6. Auf 1–11 verschoben stimmt keine der beiden Schwellen, und
+ * „8,0 von 11" ist keine Zahl, die ein Kunde kennt.
+ *
+ * Der ganze Wert eines NPS liegt darin, dass er branchenweit dieselbe Skala
+ * hat. Eine eigene waere ein Wert, der aussieht wie ein NPS und keiner ist.
+ */
+export const NPS_WERTE: string[] = Array.from({ length: 11 }, (_, i) => String(i));
+
+/** Die Grenze, ab der jemand als Promotor zaehlt. */
+export const NPS_PROMOTOR_AB = 9;
+
+/** Die Grenze, bis zu der jemand als Detraktor zaehlt. */
+export const NPS_DETRAKTOR_BIS = 6;
+
+export function stufenwerte(feld: FormularFeld): string[] {
+    // Ein NPS hat feste Werte. Sie kommen nicht aus `stufen` — sonst koennte
+    // jemand im Baukasten eine Sieben-Punkte-Skala daraus machen und die
+    // Auswertung rechnete weiter mit den NPS-Schwellen.
+    if (feld.type === 'nps') {
+        return NPS_WERTE;
+    }
+
+    const roh = Number(feld.stufen);
+    const anzahl = Number.isFinite(roh)
+        ? Math.max(STUFEN_MIN, Math.min(STUFEN_MAX, Math.trunc(roh)))
+        : STUFEN_VORGABE;
+
+    return Array.from({ length: anzahl }, (_, i) => String(i + 1));
+}
+
+/**
  * Ob dieser Feldtyp seine Beschriftung selbst zeichnet.
  *
  * Ankreuzfelder setzen den Text neben das Kaestchen, nicht darueber. Die
@@ -199,6 +288,8 @@ export interface AufgeloesteGruppe {
     id: string;
     title?: string;
     description?: string;
+    /** Gesetzt, wenn die Gruppe als Matrix gezeichnet werden soll. */
+    matrix?: { spalten: string[] };
     children: AufgeloesterKnoten[];
 }
 
@@ -321,6 +412,7 @@ function knotenAufloesen(
                 id: eintrag.id,
                 ...(eintrag.title ? { title: eintrag.title } : {}),
                 ...(eintrag.description ? { description: eintrag.description } : {}),
+                ...(eintrag.type === 'group' ? matrixAus(eintrag) : {}),
                 children,
             });
             continue;
@@ -429,6 +521,32 @@ export function felderInReihenfolge(
     return felderAusKnoten(layoutAufloesen(definition));
 }
 
+/**
+ * Die Matrix-Angabe einer Gruppe — oder nichts.
+ *
+ * Bewusst streng: Ohne mindestens ZWEI Spalten ist es keine Matrix, sondern
+ * eine Gruppe mit einer Ueberschrift. Eine Tabelle mit einer Spalte zu
+ * zeichnen sieht aus wie ein Fehler, und der Zusammenhang zur leeren
+ * Spaltenliste ist von aussen nicht zu sehen.
+ *
+ * Faellt die Angabe hier weg, stehen die Fragen untereinander statt
+ * nebeneinander — vollstaendig, nur unschoener. Das ist die Zusage, die das
+ * Layout ueberhaupt wegwerfbar macht.
+ */
+function matrixAus(gruppe: LayoutGruppe): { matrix?: { spalten: string[] } } {
+    const roh = gruppe.matrix?.spalten;
+
+    if (!Array.isArray(roh)) {
+        return {};
+    }
+
+    const spalten = [
+        ...new Set(roh.map((s) => String(s).trim()).filter((s) => s !== '')),
+    ];
+
+    return spalten.length >= 2 ? { matrix: { spalten } } : {};
+}
+
 function felderAusKnoten(knoten: AufgeloesterKnoten[]): FormularFeld[] {
     return knoten.flatMap((eintrag) => {
         if (eintrag.type === 'row') {
@@ -470,6 +588,36 @@ export interface AnzeigeOption {
  * Steht bewusst hier und nicht in der React-Schicht — ein Vue-Adapter braucht
  * dieselbe Regel, und zweimal geschrieben waere sie zweimal zu pflegen.
  */
+/**
+ * Dasselbe fuer eine Mehrfachauswahl: mehrere Werte koennen aus der Liste
+ * gefallen sein, und jeder davon muss sichtbar bleiben.
+ *
+ * Ueber `optionenMitBestandswert` in einer Schleife ginge es nicht — die
+ * Funktion haengt IHREN Bestandswert jedes Mal hinten an und wuesste nichts
+ * von den anderen. Man bekaeme die vorhandenen Optionen n-mal.
+ */
+export function optionenMitBestandswerten(
+    feld: FormularFeld,
+    werte: string[],
+    hinweis = '(nicht mehr zur Auswahl)',
+): AnzeigeOption[] {
+    const optionen = nutzbareOptionen(feld);
+    const anzeige: AnzeigeOption[] = optionen.map((o) => ({ wert: o, label: o }));
+
+    const fremde = werte.filter(
+        (wert) => wert !== '' && !optionen.includes(wert),
+    );
+
+    return [
+        ...anzeige,
+        ...[...new Set(fremde)].map((wert) => ({
+            wert,
+            label: `${wert} ${hinweis}`.trim(),
+            bestandswert: true,
+        })),
+    ];
+}
+
 export function optionenMitBestandswert(
     feld: FormularFeld,
     wert: string,

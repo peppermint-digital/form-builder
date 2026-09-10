@@ -1,0 +1,51 @@
+{
+  "name": "Eine Mehrfachauswahl ohne Kreuz gilt als leer",
+  "warum": "filled/empty fragen bei einer Liste nach der Anzahl. Eine leere Liste ist nicht dasselbe wie eine leere Zeichenkette, und ohne diesen Zweig waere sie „gefuellt\" — sie ist ja ein Wert.",
+  "definition": {
+    "fields": [
+      {
+        "name": "workshops",
+        "label": "Welche Workshops?",
+        "type": "checkboxes",
+        "options": [
+          "Workshop A"
+        ]
+      },
+      {
+        "name": "warum_keiner",
+        "label": "Warum keiner?",
+        "type": "textarea"
+      }
+    ],
+    "conditions": [
+      {
+        "id": "r1",
+        "target": {
+          "kind": "field",
+          "ref": "warum_keiner"
+        },
+        "effect": "show",
+        "match": "all",
+        "tests": [
+          {
+            "field": "workshops",
+            "op": "empty"
+          }
+        ]
+      }
+    ]
+  },
+  "werte": {
+    "workshops": []
+  },
+  "erwartet": {
+    "sichtbareFelder": [
+      "warum_keiner",
+      "workshops"
+    ],
+    "pflichtFelder": [],
+    "sichtbareGruppen": [],
+    "sichtbareSchritte": [],
+    "zyklen": []
+  }
+}

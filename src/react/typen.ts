@@ -1,6 +1,6 @@
 import type { ComponentType, ReactNode } from 'react';
 
-import type { AnzeigeOption, FormularFeld } from '../core';
+import type { AnzeigeOption, Feldwert, FormularFeld } from '../core';
 
 /**
  * Die Vertraege, ueber die eine Anwendung ihre eigenen Eingabe-Elemente
@@ -59,6 +59,50 @@ export interface OptionsgruppeProps extends Gemeinsam {
     onChange: (wert: string) => void;
 }
 
+/**
+ * Mehrere Antworten aus einer Liste.
+ *
+ * Der einzige Baustein, dessen Wert KEINE Zeichenkette ist. Warum, steht am
+ * Typ `Feldwert`: eine zusammengefuegte Zeichenkette machte aus `contains`
+ * einen Teilstring-Vergleich, und „Workshop A" traefe auch auf „Workshop AB".
+ */
+export interface MehrfachauswahlProps extends Gemeinsam {
+    /** Die angekreuzten Eintraege. Leer heisst: keiner. */
+    wert: string[];
+    optionen: AnzeigeOption[];
+    /**
+     * Bekommt immer die VOLLSTAENDIGE neue Liste, nicht das umgeschaltete
+     * Element. Der Adapter muss sich damit nicht merken, was vorher galt —
+     * und zwei Adapter koennen nicht verschieden entscheiden, was ein
+     * doppeltes Kreuz bedeutet.
+     */
+    onChange: (wert: string[]) => void;
+}
+
+/**
+ * Eine Bewertung auf n Stufen.
+ *
+ * Der Wert ist die Stufe als Zeichenkette ('1'…'n'), nie eine Zahl — dieselbe
+ * Regel wie beim Ankreuzfeld. Dass es Ziffern sind, ist trotzdem kein Zufall:
+ * `gt`/`lt` rechnen darueber, und „Bewertung unter 3 → frag nach" ist die
+ * haeufigste Regel einer Feedback-Umfrage.
+ */
+export interface SkalaProps extends Gemeinsam {
+    wert: string;
+    /** Die Stufen, immer '1' bis n. */
+    stufen: string[];
+    /** Beschriftung der Enden, falls gesetzt. */
+    von?: string;
+    bis?: string;
+    /**
+     * Wie die Stufen aussehen SOLLEN. Ein Wunsch, keine Zusage — wer keine
+     * Sterne zeichnen kann, zeichnet Zahlen. Am gespeicherten Wert aendert
+     * das nichts, und daran haengt die Auswertung.
+     */
+    darstellung: 'zahlen' | 'sterne' | 'smilies';
+    onChange: (wert: string) => void;
+}
+
 export interface AnkreuzProps extends Gemeinsam {
     /**
      * Ankreuzfelder zeichnen ihre Beschriftung selbst, neben dem Kaestchen
@@ -93,6 +137,42 @@ export interface Systembaustein {
 
 export interface SystembausteinProps {
     baustein: Systembaustein;
+}
+
+/**
+ * Eine Matrix: eine Zeile je Frage, dieselben Spalten fuer alle.
+ *
+ * Optional wie jeder Eintrag in `KomponentenSatz` — fehlt sie, zeichnet
+ * `StandardMatrix`. Ein Pflicht-Eintrag waere eine Komponente, die JEDE
+ * Anwendung nachreichen muesste, bevor der Typ bei ihr ankommt.
+ */
+export interface MatrixProps {
+    id: string;
+    title?: string;
+    description?: string;
+    spalten: string[];
+    zeilen: MatrixZeile[];
+}
+
+export interface MatrixZeile {
+    /** Der Datenschluessel dieser Zeile — ein gewoehnliches Feld. */
+    name: string;
+    id: string;
+    label: string;
+    required: boolean;
+    wert: string;
+    fehler?: string;
+    hinweis?: string;
+    /**
+     * Die anzukreuzenden Werte dieser Zeile — fertig aufbereitet, inklusive
+     * eines gespeicherten Wertes, der nicht mehr zur Auswahl steht.
+     *
+     * Sie koennen von `spalten` ABWEICHEN: Die Spalten sind Darstellung, die
+     * Optionen des Feldes sind der Vertrag. Weicht eine Zeile ab, gehoert das
+     * sichtbar gemacht und nicht stillschweigend geglaettet.
+     */
+    optionen: AnzeigeOption[];
+    onChange: (wert: string) => void;
 }
 
 export interface GruppeProps {
@@ -143,7 +223,10 @@ export interface KomponentenSatz {
     Mehrzeilig?: ComponentType<MehrzeiligProps>;
     Auswahl?: ComponentType<AuswahlProps>;
     Optionsgruppe?: ComponentType<OptionsgruppeProps>;
+    Mehrfachauswahl?: ComponentType<MehrfachauswahlProps>;
+    Skala?: ComponentType<SkalaProps>;
     Ankreuz?: ComponentType<AnkreuzProps>;
+    Matrix?: ComponentType<MatrixProps>;
     Beschriftung?: ComponentType<BeschriftungProps>;
     Fehler?: ComponentType<FehlerProps>;
     Hinweis?: ComponentType<HinweisProps>;
@@ -166,6 +249,6 @@ export interface EigenerFeldTyp {
 
 export interface EigenerFeldTypProps extends Gemeinsam {
     feld: FormularFeld;
-    wert: string;
-    onChange: (wert: string) => void;
+    wert: Feldwert;
+    onChange: (wert: Feldwert) => void;
 }

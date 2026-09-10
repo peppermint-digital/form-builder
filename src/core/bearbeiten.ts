@@ -556,7 +556,18 @@ export function rahmenHinzufuegen(
 export function rahmenAendern(
     definition: FormularDefinition,
     id: string,
-    aenderungen: { title?: string; description?: string },
+    aenderungen: {
+        title?: string;
+        description?: string;
+        /**
+         * Nur fuer Gruppen: macht sie zur Matrix oder loest sie wieder auf.
+         *
+         * `null` nimmt die Angabe WEG. Ohne diesen Weg waere das Umschalten
+         * eine Einbahnstrasse — eine Gruppe zur Matrix zu machen ginge, sie
+         * wieder zu Fragen untereinander nicht.
+         */
+        matrix?: { spalten: string[] } | null;
+    },
 ): FormularDefinition {
     const gesichert = layoutSicherstellen(definition);
 
@@ -566,9 +577,30 @@ export function rahmenAendern(
                 return eintrag;
             }
 
-            return eintrag.id === id
-                ? { ...eintrag, ...aenderungen }
-                : { ...eintrag, children: gehen(eintrag.children) };
+            if (eintrag.id !== id) {
+                return { ...eintrag, children: gehen(eintrag.children) };
+            }
+
+            const { matrix, ...rest } = aenderungen;
+            const geaendert = { ...eintrag, ...rest };
+
+            if (matrix === undefined) {
+                return geaendert;
+            }
+
+            // `null` heisst „weg", nicht „leer setzen". Ein `matrix: null` im
+            // gespeicherten Layout waere eine Angabe, die es gibt und die
+            // nichts bedeutet — und irgendein Leser wuerde sie irgendwann
+            // anders auslegen als der naechste.
+            if (matrix === null) {
+                const { matrix: _weg, ...ohne } = geaendert as {
+                    matrix?: unknown;
+                };
+
+                return ohne as LayoutKnoten;
+            }
+
+            return { ...geaendert, matrix };
         });
 
     return { ...gesichert, layout: gehen(gesichert.layout) };
@@ -697,16 +729,34 @@ export function rahmenVonFeld(
 /** Alle Rahmen der Definition, fuer Auswahllisten im Editor. */
 export function rahmenListe(
     definition: FormularDefinition,
-): Array<{ id: string; art: 'group' | 'step'; titel: string }> {
-    const aus: Array<{ id: string; art: 'group' | 'step'; titel: string }> = [];
+): Array<{
+    id: string;
+    art: 'group' | 'step';
+    titel: string;
+    /** Nur bei Gruppen gesetzt: die Spalten, wenn sie eine Matrix ist. */
+    matrix?: string[];
+}> {
+    const aus: Array<{
+        id: string;
+        art: 'group' | 'step';
+        titel: string;
+        matrix?: string[];
+    }> = [];
 
     const gehen = (knoten: LayoutKnoten[]): void => {
         for (const eintrag of knoten) {
             if (istRahmen(eintrag)) {
+                const spalten =
+                    eintrag.type === 'group' &&
+                    Array.isArray(eintrag.matrix?.spalten)
+                        ? eintrag.matrix.spalten
+                        : undefined;
+
                 aus.push({
                     id: eintrag.id,
                     art: eintrag.type,
                     titel: eintrag.title || (eintrag.type === 'group' ? 'Gruppe' : 'Schritt'),
+                    ...(spalten ? { matrix: spalten } : {}),
                 });
                 gehen(eintrag.children);
             }
@@ -870,4 +920,125 @@ export function feldNebenFeld(
     // Verschieben verschwindet, waere schlimmer als eines, das sich nicht
     // verschieben laesst.
     return gesetzt ? { ...gesichert, layout } : definition;
+}
+
+/**
+ * Legt eine Kopie eines Feldes direkt darunter an.
+ *
+ * Der meistgeklickte Handgriff eines Umfrage-Baukastens: Man formuliert eine
+ * gute Frage einmal und variiert sie danach fuenfmal. Ohne ihn tippt man
+ * Optionen, Hinweis und Pflichthaken jedes Mal neu ab — und tippt sie beim
+ * dritten Mal anders.
+ *
+ * Die Kopie bekommt einen NEUEN Datenschluessel. Das ist nicht verhandelbar:
+ * Zwei Felder mit demselben `name` beschreiben dieselbe Stelle in den
+ * Antworten, und die zweite ueberschriebe die erste. Der Waechter auf der
+ * Serverseite weist das ab — hier gar nicht erst zu erzeugen erspart den
+ * Fehlschlag beim Speichern.
+ *
+ * Die Beschriftung wird NICHT verziert („… (Kopie)"). Wer dupliziert, will
+ * gleich weitertippen; ein Zusatz, den man erst wegloeschen muss, ist ein
+ * Handgriff mehr statt weniger.
+ */
+export function feldDuplizieren(
+    definition: FormularDefinition,
+    name: string,
+): FormularDefinition {
+    const gesichert = layoutSicherstellen(definition);
+    const vorlage = gesichert.fields.find((feld) => feld.name === name);
+
+    if (vorlage === undefined) {
+        return definition;
+    }
+
+    const kopie: FormularFeld = {
+        ...vorlage,
+        name: naechsterFeldname(gesichert),
+    };
+
+    // Die `id` darf NICHT mitkopiert werden — sie haelt zwei Felder im Editor
+    // auseinander. Zweimal dieselbe, und der Editor bearbeitet beim Klick auf
+    // die eine die andere.
+    delete kopie.id;
+
+    let gesetzt = false;
+
+    const gehen = (knoten: LayoutKnoten[]): LayoutKnoten[] =>
+        knoten.flatMap((eintrag): LayoutKnoten[] => {
+            if (istRahmen(eintrag)) {
+                return [{ ...eintrag, children: gehen(eintrag.children) }];
+            }
+
+            if (gesetzt || !istZeile(eintrag) || !eintrag.columns.flat().includes(name)) {
+                return [eintrag];
+            }
+
+            gesetzt = true;
+
+            // Direkt UNTER dem Original und nicht am Ende: Eine Kopie, die ans
+            // andere Ende des Formulars springt, sieht aus wie ein Fehler.
+            return [eintrag, { type: 'row', columns: [[kopie.name]] }];
+        });
+
+    const layout = gehen(gesichert.layout);
+
+    return {
+        ...gesichert,
+        fields: [...gesichert.fields, kopie],
+        layout: gesetzt ? layout : [...layout, { type: 'row', columns: [[kopie.name]] }],
+    };
+}
+
+/**
+ * Schiebt die Zeile eines Feldes um eine Stelle — innerhalb ihres Rahmens.
+ *
+ * Der Unterschied zu {@see zeileVerschieben} ist die Frage, die man stellt:
+ * Dort gibt man Index und Pfad an, hier den FELDNAMEN. Ein linearer Builder
+ * kennt keine Indizes und keine Pfade — er kennt Fragen.
+ *
+ * Verschoben wird nur innerhalb einer Ebene. Ein Pfeil, der eine Frage aus
+ * ihrem Schritt herausbefoerdert, waere ein Umzug und keine Reihenfolge.
+ */
+export function feldUmordnen(
+    definition: FormularDefinition,
+    name: string,
+    richtung: 'hoch' | 'runter',
+): FormularDefinition {
+    const gesichert = layoutSicherstellen(definition);
+
+    const suchen = (
+        knoten: LayoutKnoten[],
+        pfad: number[],
+    ): { pfad: number[]; index: number } | null => {
+        for (let i = 0; i < knoten.length; i++) {
+            const eintrag = knoten[i]!;
+
+            if (istZeile(eintrag) && eintrag.columns.flat().includes(name)) {
+                return { pfad, index: i };
+            }
+
+            if (istRahmen(eintrag)) {
+                const treffer = suchen(eintrag.children, [...pfad, i]);
+
+                if (treffer !== null) {
+                    return treffer;
+                }
+            }
+        }
+
+        return null;
+    };
+
+    const ort = suchen(gesichert.layout, []);
+
+    if (ort === null) {
+        return definition;
+    }
+
+    return zeileVerschieben(
+        gesichert,
+        ort.index,
+        richtung === 'hoch' ? ort.index - 1 : ort.index + 1,
+        ort.pfad,
+    );
 }

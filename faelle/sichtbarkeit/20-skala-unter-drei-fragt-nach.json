@@ -1,0 +1,50 @@
+{
+  "name": "Eine schlechte Bewertung oeffnet die Nachfrage",
+  "warum": "Der Grund, warum die Stufe einer Skala als Zahl-Zeichenkette gespeichert wird: gt/lt greifen unveraendert. „Bewertung unter 3 → frag nach\" ist die haeufigste Regel einer Feedback-Umfrage und braucht damit keinen neuen Vergleich.",
+  "definition": {
+    "fields": [
+      {
+        "name": "bewertung",
+        "label": "Wie zufrieden warst du?",
+        "type": "scale",
+        "stufen": 5
+      },
+      {
+        "name": "besser",
+        "label": "Was koennen wir besser machen?",
+        "type": "textarea"
+      }
+    ],
+    "conditions": [
+      {
+        "id": "r1",
+        "target": {
+          "kind": "field",
+          "ref": "besser"
+        },
+        "effect": "show",
+        "match": "all",
+        "tests": [
+          {
+            "field": "bewertung",
+            "op": "lt",
+            "value": "3"
+          }
+        ]
+      }
+    ]
+  },
+  "werte": {
+    "bewertung": "2"
+  },
+  "erwartet": {
+    "sichtbareFelder": [
+      "besser",
+      "bewertung"
+    ],
+    "pflichtFelder": [],
+    "sichtbareGruppen": [],
+    "sichtbareSchritte": [],
+    "zyklen": []
+  }
+}

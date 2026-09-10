@@ -295,6 +295,29 @@ class Sichtbarkeit
         $wert = self::wertLesen($pruefung->feld, $antworten, $sichtbareFelder);
         $vergleich = $pruefung->wert ?? '';
 
+        // Auf einer Mehrfachauswahl gibt es keinen einen Wert, dem etwas
+        // gleichen koennte — es gibt eine Menge. `is` und `contains` fragen
+        // deshalb dasselbe: steht dieser Eintrag darin?
+        //
+        // Diese Unterscheidung muss hier stehen und nicht nur drueben in
+        // TypeScript: Vor ihr lieferte `wertLesen` fuer eine Liste `''`
+        // (`is_scalar(...) ? ... : ''`), waehrend die TypeScript-Seite
+        // `String(['a','b'])` rechnete und `'a,b'` bekam. Zwei Auswertungen
+        // derselben Regel, zwei Ergebnisse, keine Meldung.
+        if (is_array($wert)) {
+            $enthalten = $vergleich !== '' && in_array($vergleich, $wert, true);
+
+            return match ($pruefung->op) {
+                'is', 'contains' => $enthalten,
+                'is_not', 'not_contains' => ! $enthalten,
+                'filled' => $wert !== [],
+                'empty' => $wert === [],
+                // `gt`/`lt` auf einer Menge. Es gibt keine Lesart davon, die
+                // im Formular jemanden nicht ueberraschen wuerde.
+                default => false,
+            };
+        }
+
         return match ($pruefung->op) {
             'is' => $wert === $vergleich,
             'is_not' => $wert !== $vergleich,
@@ -325,7 +348,7 @@ class Sichtbarkeit
         string $name,
         array $antworten,
         array $sichtbareFelder,
-    ): string {
+    ): string|array {
         if (! in_array($name, $sichtbareFelder, true)) {
             return '';
         }
@@ -338,6 +361,21 @@ class Sichtbarkeit
 
         if ($roh === true) {
             return '1';
+        }
+
+        // Eine Mehrfachauswahl kommt als Liste an. Sie BLEIBT eine Liste —
+        // zusammengefuegt waere `contains` ein Teilstring-Vergleich, und
+        // „Workshop A" traefe auch auf „Workshop AB" zu.
+        if (is_array($roh)) {
+            $eintraege = [];
+
+            foreach ($roh as $eintrag) {
+                if (is_scalar($eintrag) && (string) $eintrag !== '') {
+                    $eintraege[] = (string) $eintrag;
+                }
+            }
+
+            return $eintraege;
         }
 
         return is_scalar($roh) ? (string) $roh : '';

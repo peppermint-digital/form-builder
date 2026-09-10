@@ -291,3 +291,151 @@ it('setzt exclude auch unter einem Prefix', function () {
 
     expect($regeln['form_data.hotel'])->toBe(['exclude']);
 });
+
+/*
+|-------------------------------------------------------------------------------
+| Mehrfachauswahl und Skala
+|-------------------------------------------------------------------------------
+|
+| Diese Tests fragen den ECHTEN Validator und nicht nur den Wortlaut der Regel.
+| Der Grund: Die Aussagen, um die es hier geht, sind Aussagen ueber Laravel —
+| dass `required` ein leeres Array abweist, und dass `in:` gequotete Werte mit
+| Komma darin als EINEN Wert liest. Ein Test, der `toContain('array')` prueft,
+| haette beide Male recht behalten und nichts belegt.
+|
+*/
+
+it('gibt einer Mehrfachauswahl zwei Schluessel — Liste und Eintraege', function () {
+    $regeln = AntwortRegeln::fuer(def([
+        ['name' => 'workshops', 'label' => 'Workshops', 'type' => 'checkboxes', 'options' => ['A', 'B']],
+    ]));
+
+    expect($regeln['workshops'])->toBe(['nullable', 'array']);
+    expect($regeln['workshops.*'])->toBe(['string', 'in:"A","B"']);
+});
+
+it('weist bei einer Pflicht-Mehrfachauswahl auch die leere Liste ab', function () {
+    $regeln = AntwortRegeln::fuer(def([
+        ['name' => 'workshops', 'label' => 'Workshops', 'type' => 'checkboxes',
+            'options' => ['A', 'B'], 'required' => true],
+    ]));
+
+    // Der eigentliche Beweis: `required` auf einem Array heisst „nicht leer".
+    // Ohne das waere ein Pflicht-Mehrfachfeld erfuellt, sobald der Browser
+    // ueberhaupt einen Schluessel mitschickt — auch ohne ein einziges Kreuz.
+    expect(validator(['workshops' => []], $regeln)->fails())->toBeTrue();
+    expect(validator(['workshops' => ['A']], $regeln)->fails())->toBeFalse();
+});
+
+it('laesst nur Eintraege durch, die es in der Liste gibt', function () {
+    $regeln = AntwortRegeln::fuer(def([
+        ['name' => 'workshops', 'label' => 'Workshops', 'type' => 'checkboxes', 'options' => ['A', 'B']],
+    ]));
+
+    expect(validator(['workshops' => ['A', 'B']], $regeln)->fails())->toBeFalse();
+    expect(validator(['workshops' => ['A', 'C']], $regeln)->fails())->toBeTrue();
+});
+
+it('haelt eine Option mit Komma zusammen', function () {
+    $regeln = AntwortRegeln::fuer(def([
+        ['name' => 'essen', 'label' => 'Essen', 'type' => 'checkboxes',
+            'options' => ['Ja, gerne', 'Nein danke']],
+    ]));
+
+    // Unquotiert zerfiele „Ja, gerne" in „Ja" und „ gerne": Die Regel erlaubte
+    // dann zwei Werte, die es nicht gibt, und verboete den, den es gibt.
+    expect(validator(['essen' => ['Ja, gerne']], $regeln)->fails())->toBeFalse();
+    expect(validator(['essen' => ['Ja']], $regeln)->fails())->toBeTrue();
+});
+
+it('bindet eine Skala an ihre Stufen', function () {
+    $regeln = AntwortRegeln::fuer(def([
+        ['name' => 'note', 'label' => 'Note', 'type' => 'scale', 'stufen' => 5],
+    ]));
+
+    expect($regeln['note'])->toContain('in:1,2,3,4,5');
+
+    // Ohne diese Regel schriebe eine Anfrage an der Oberflaeche vorbei '99' in
+    // die Bewertung, und der Durchschnitt in der Auswertung waere still falsch.
+    expect(validator(['note' => '99'], $regeln)->fails())->toBeTrue();
+    expect(validator(['note' => '4'], $regeln)->fails())->toBeFalse();
+});
+
+it('gibt einer Skala ohne Angabe fuenf Stufen', function () {
+    $regeln = AntwortRegeln::fuer(def([
+        ['name' => 'note', 'label' => 'Note', 'type' => 'scale'],
+    ]));
+
+    expect($regeln['note'])->toContain('in:1,2,3,4,5');
+});
+
+it('weist eine unsinnige Stufenzahl in die Schranken', function () {
+    $regeln = AntwortRegeln::fuer(def([
+        ['name' => 'note', 'label' => 'Note', 'type' => 'scale', 'stufen' => 5000],
+    ]));
+
+    // Sonst stuenden 5000 Knoepfe im Formular und 5000 Werte in der
+    // Fehlermeldung. Der Wert kommt aus einer JSON-Spalte und damit von aussen.
+    expect($regeln['note'])->toContain('in:1,2,3,4,5,6,7,8,9,10,11');
+});
+
+it('nimmt einer verborgenen Mehrfachauswahl beide Schluessel weg', function () {
+    $definition = def([
+        ['name' => 'kommt', 'label' => 'Kommst du?', 'type' => 'select', 'options' => ['ja', 'nein']],
+        ['name' => 'workshops', 'label' => 'Workshops', 'type' => 'checkboxes', 'options' => ['A']],
+    ]);
+    $definition = FormularDefinition::fromArray([
+        'fields' => array_map(fn ($f) => $f->toArray(), $definition->felder),
+        'conditions' => [[
+            'id' => 'r1',
+            'target' => ['kind' => 'field', 'ref' => 'workshops'],
+            'effect' => 'show',
+            'match' => 'all',
+            'tests' => [['field' => 'kommt', 'op' => 'is', 'value' => 'ja']],
+        ]],
+    ]);
+
+    $regeln = AntwortRegeln::fuer($definition, antworten: ['kommt' => 'nein']);
+
+    // `exclude` am Feld genuegt — Laravel wirft den ganzen Teilbaum weg.
+    // Ein `workshops.*` daneben waere eine Regel auf etwas, das es nicht
+    // mehr gibt.
+    expect($regeln['workshops'])->toBe(['exclude']);
+    expect($regeln)->not->toHaveKey('workshops.*');
+});
+
+it('gibt auch den Eintraegen einer Mehrfachauswahl ihre Beschriftung', function () {
+    $definition = def([
+        ['name' => 'workshops', 'label' => 'Welche Workshops?', 'type' => 'checkboxes',
+            'options' => ['A', 'B']],
+    ]);
+
+    $attribute = AntwortRegeln::attribute($definition);
+
+    // Ohne diese Zeile lautet die Meldung „The selected workshops.1 is
+    // invalid" — mit Datenschlüssel und Index darin.
+    expect($attribute['workshops.*'])->toBe('Welche Workshops?');
+});
+
+it('bindet einen NPS auf null bis zehn', function () {
+    $regeln = AntwortRegeln::fuer(def([
+        ['name' => 'nps', 'label' => 'Weiterempfehlung', 'type' => 'nps'],
+    ]));
+
+    // Null bis zehn und NICHT eins bis elf. Promotor ist 9–10, Detraktor 0–6 —
+    // auf 1–11 verschoben stimmt keine der beiden Schwellen.
+    expect($regeln['nps'])->toContain('in:0,1,2,3,4,5,6,7,8,9,10');
+    expect(validator(['nps' => '0'], $regeln)->fails())->toBeFalse();
+    expect(validator(['nps' => '10'], $regeln)->fails())->toBeFalse();
+    expect(validator(['nps' => '11'], $regeln)->fails())->toBeTrue();
+});
+
+it('laesst die Stufenzahl einen NPS nicht verbiegen', function () {
+    $regeln = AntwortRegeln::fuer(def([
+        ['name' => 'nps', 'label' => 'Weiterempfehlung', 'type' => 'nps', 'stufen' => 7],
+    ]));
+
+    // Sonst machte jemand im Baukasten eine Sieben-Punkte-Skala daraus, und
+    // die Auswertung rechnete weiter mit den NPS-Schwellen.
+    expect($regeln['nps'])->toContain('in:0,1,2,3,4,5,6,7,8,9,10');
+});

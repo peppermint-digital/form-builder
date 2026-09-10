@@ -4,9 +4,13 @@ import {
     definitionLesen,
     pruefungenTreffen,
     schritteAufloesen,
+    optionenMitBestandswert,
     sichtbarkeit,
+    textLesen,
+    wertLeer,
     type AufgeloesterKnoten,
     type AufgeloesterSchritt,
+    type Feldwert,
     type FormularDefinition,
     type RoheDefinition,
     type Sichtbarkeit,
@@ -14,10 +18,16 @@ import {
 import FormularFeldEingabe from './feld';
 import {
     StandardGruppe,
+    StandardMatrix,
     StandardSchrittsteuerung,
     StandardSystembaustein,
 } from './standard';
-import type { EigenerFeldTyp, KomponentenSatz, Systembaustein } from './typen';
+import type {
+    EigenerFeldTyp,
+    KomponentenSatz,
+    MatrixZeile,
+    Systembaustein,
+} from './typen';
 
 /** Was der Renderer ueber den Schrittstand nach aussen gibt. */
 export interface SchrittStand {
@@ -35,8 +45,12 @@ export interface SchrittStand {
 export interface FormularRendererProps {
     /** Nimmt jede gespeicherte Form an — Objekt, nackte Liste oder nichts. */
     definition: RoheDefinition;
-    werte: Record<string, string>;
-    onChange: (name: string, wert: string) => void;
+    /**
+     * Der Antwortstand. Zeichenketten — mit der einen Ausnahme
+     * `checkboxes`, die eine Liste fuehrt (siehe `Feldwert`).
+     */
+    werte: Record<string, Feldwert>;
+    onChange: (name: string, wert: Feldwert) => void;
     /** Feldname → Meldung, wie Laravel sie zurueckgibt. */
     fehler?: Record<string, string | undefined>;
     komponenten?: KomponentenSatz;
@@ -137,7 +151,7 @@ export default function FormularRenderer({
     const index = sichtbareSchritte.indexOf(aktuell);
     const mehrstufig = sichtbareSchritte.length > 1;
 
-    const feldGeaendert = (name: string, wert: string) => {
+    const feldGeaendert = (name: string, wert: Feldwert) => {
         if (eigeneFehler[name]) {
             const rest = { ...eigeneFehler };
             delete rest[name];
@@ -195,6 +209,7 @@ export default function FormularRenderer({
     };
 
     const Gruppe = komponenten?.Gruppe ?? StandardGruppe;
+    const Matrix = komponenten?.Matrix ?? StandardMatrix;
     const Baustein = komponenten?.Systembaustein ?? StandardSystembaustein;
     const Schrittsteuerung =
         komponenten?.Schrittsteuerung ?? StandardSchrittsteuerung;
@@ -229,6 +244,44 @@ export default function FormularRenderer({
             if (eintrag.type === 'group') {
                 if (!stand.sichtbareGruppen.has(eintrag.id)) {
                     return [];
+                }
+
+                /*
+                 * Eine Matrix-Gruppe wird als Tabelle gezeichnet statt als
+                 * Rahmen. Die Felder darin bleiben gewöhnliche Felder mit
+                 * eigenem Datenschlüssel — es ändert sich nur, WIE sie
+                 * nebeneinander stehen.
+                 *
+                 * Nur SICHTBARE Zeilen. Eine bedingt ausgeblendete Zeile
+                 * verschwindet aus der Tabelle; eine leere Zeile mit
+                 * Überschrift wäre eine Frage, die es nicht gibt.
+                 */
+                if (eintrag.matrix) {
+                    const zeilen = matrixZeilen(
+                        eintrag,
+                        stand,
+                        werte,
+                        alleFehler,
+                        idPrefix ?? '',
+                        feldGeaendert,
+                    );
+
+                    if (zeilen.length === 0) {
+                        return [];
+                    }
+
+                    return [
+                        <Matrix
+                            key={eigenerSchluessel}
+                            id={`${idPrefix}${eintrag.id}`}
+                            {...(eintrag.title ? { title: eintrag.title } : {})}
+                            {...(eintrag.description
+                                ? { description: eintrag.description }
+                                : {})}
+                            spalten={eintrag.matrix.spalten}
+                            zeilen={zeilen}
+                        />,
+                    ];
                 }
 
                 const inhalt = zeichnen(eintrag.children, eigenerSchluessel);
@@ -360,11 +413,55 @@ export default function FormularRenderer({
 function pflichtLuecken(
     schritt: AufgeloesterSchritt,
     stand: Sichtbarkeit,
-    werte: Record<string, string>,
+    werte: Record<string, Feldwert>,
 ): string[] {
     return felderVon(schritt.knoten)
         .filter((name) => stand.pflichtFelder.has(name))
-        .filter((name) => (werte[name] ?? '') === '');
+        // Ueber `wertLeer` und nicht ueber `=== ''`: eine leere
+        // Mehrfachauswahl ist `[]`, und `[] === ''` ist falsch. Ohne diesen
+        // Schnitt galte ein Pflicht-Mehrfachfeld als ausgefuellt, sobald der
+        // Browser den Schluessel ueberhaupt mitschickt — also immer.
+        .filter((name) => wertLeer(werte[name]));
+}
+
+/**
+ * Die Zeilen einer Matrix — aus den Feldern der Gruppe.
+ *
+ * Nur Felder auf oberster Ebene der Gruppe, und nur SICHTBARE. Wer eine Zeile
+ * bedingt ausblendet, will sie aus der Tabelle heraus haben; sie leer
+ * stehenzulassen wäre eine Frage, die es gerade nicht gibt.
+ */
+function matrixZeilen(
+    gruppe: { children: AufgeloesterKnoten[] },
+    stand: Sichtbarkeit,
+    werte: Record<string, Feldwert>,
+    alleFehler: Record<string, string | undefined>,
+    idPrefix: string,
+    onChange: (name: string, wert: Feldwert) => void,
+): MatrixZeile[] {
+    return gruppe.children
+        .flatMap((knoten) =>
+            knoten.type === 'row' ? knoten.columns.flat() : [],
+        )
+        .filter((feld) => stand.sichtbareFelder.has(feld.name))
+        .map((feld) => {
+            const wert = textLesen(werte[feld.name]);
+
+            return {
+                name: feld.name,
+                id: `${idPrefix}${feld.name}`,
+                label: feld.label,
+                required: stand.pflichtFelder.has(feld.name),
+                wert,
+                // Die Optionen kommen vom FELD und nicht von den Spalten. Die
+                // Spalten sind Darstellung, die Optionen sind der Vertrag —
+                // und daran hängt die Validierung.
+                optionen: optionenMitBestandswert(feld, wert),
+                ...(alleFehler[feld.name] ? { fehler: alleFehler[feld.name] } : {}),
+                ...(feld.hinweis ? { hinweis: feld.hinweis } : {}),
+                onChange: (neu: string) => onChange(feld.name, neu),
+            };
+        });
 }
 
 function felderVon(knoten: AufgeloesterKnoten[]): string[] {
@@ -394,7 +491,7 @@ function naechsterSchritt(
     definition: FormularDefinition,
     aktuell: AufgeloesterSchritt,
     sichtbare: AufgeloesterSchritt[],
-    werte: Record<string, string>,
+    werte: Record<string, Feldwert>,
     stand: Sichtbarkeit,
 ): AufgeloesterSchritt | null {
     const kanten = (definition.flow ?? []).filter(

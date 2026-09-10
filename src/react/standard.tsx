@@ -1,6 +1,9 @@
 import type {
     AnkreuzProps,
     AuswahlProps,
+    MatrixProps,
+    MehrfachauswahlProps,
+    SkalaProps,
     BeschriftungProps,
     FehlerProps,
     GruppeProps,
@@ -245,5 +248,220 @@ export function StandardSystembaustein({ baustein }: SystembausteinProps) {
                 <p className="pm-fb-system__text">{baustein.beschreibung}</p>
             )}
         </div>
+    );
+}
+
+/**
+ * Mehrere Antworten aus einer Liste.
+ *
+ * Der Baustein reicht immer die VOLLSTAENDIGE neue Liste heraus, nicht das
+ * umgeschaltete Element. Sonst muesste jeder Adapter selbst entscheiden, was
+ * ein zweites Kreuz auf derselben Option bedeutet — und zwei Adapter
+ * entschieden es verschieden.
+ *
+ * Die Reihenfolge folgt den OPTIONEN, nicht der Reihenfolge des Anklickens.
+ * Damit sieht eine gespeicherte Antwort immer gleich aus, egal in welcher
+ * Folge jemand geklickt hat; sonst waeren `['A','B']` und `['B','A']` zwei
+ * verschiedene Antworten auf dieselbe Frage.
+ */
+export function StandardMehrfachauswahl({
+    id,
+    wert,
+    optionen,
+    onChange,
+    required,
+    ...rest
+}: MehrfachauswahlProps) {
+    const umschalten = (option: string) => {
+        const gewaehlt = new Set(wert);
+
+        if (gewaehlt.has(option)) {
+            gewaehlt.delete(option);
+        } else {
+            gewaehlt.add(option);
+        }
+
+        onChange(optionen.map((o) => o.wert).filter((o) => gewaehlt.has(o)));
+    };
+
+    return (
+        <div className="pm-fb-mehrfachauswahl" role="group" aria-labelledby={`${id}__label`}>
+            {optionen.map((option) => (
+                <label
+                    key={option.wert}
+                    className="pm-fb-option"
+                    htmlFor={`${id}_${option.wert}`}
+                >
+                    <input
+                        type="checkbox"
+                        id={`${id}_${option.wert}`}
+                        name={rest.name}
+                        value={option.wert}
+                        checked={wert.includes(option.wert)}
+                        onChange={() => umschalten(option.wert)}
+                    />
+                    <span>{option.label}</span>
+                </label>
+            ))}
+        </div>
+    );
+}
+
+/**
+ * Eine Bewertung auf n Stufen.
+ *
+ * Native Auswahlknoepfe und keine Sterne: Sterne sind eine Frage des
+ * Aussehens, und dieses Paket bringt bewusst keine Bibliothek mit. Der Wunsch
+ * (`darstellung`) wird trotzdem durchgereicht — eine Anwendung, die Sterne
+ * zeichnen will, ersetzt den Baustein und weiss dann, was gemeint war.
+ */
+export function StandardSkala({
+    id,
+    wert,
+    stufen,
+    von,
+    bis,
+    onChange,
+    ...rest
+}: SkalaProps) {
+    return (
+        <div className="pm-fb-skala">
+            {von && <span className="pm-fb-skala__ende">{von}</span>}
+
+            <div className="pm-fb-skala__stufen" role="radiogroup">
+                {stufen.map((stufe) => (
+                    <label
+                        key={stufe}
+                        className="pm-fb-skala__stufe"
+                        htmlFor={`${id}_${stufe}`}
+                    >
+                        <input
+                            type="radio"
+                            id={`${id}_${stufe}`}
+                            // Ueber die id gruppiert und nicht ueber den
+                            // Feldnamen: sonst waeren zwei Masken auf einer
+                            // Seite dieselbe Gruppe, und ein Klick links
+                            // loescht rechts.
+                            name={id}
+                            value={stufe}
+                            checked={wert === stufe}
+                            required={rest.required}
+                            onChange={() => onChange(stufe)}
+                        />
+                        <span>{stufe}</span>
+                    </label>
+                ))}
+            </div>
+
+            {bis && <span className="pm-fb-skala__ende">{bis}</span>}
+        </div>
+    );
+}
+
+/**
+ * Eine Matrix als Tabelle — eine Zeile je Frage, dieselben Spalten fuer alle.
+ *
+ * Auswahlknoepfe und keine Schaltflaechen: Damit funktionieren Tastatur und
+ * Vorlesesoftware ohne eigenes Zutun, und ein Pflichtfeld bleibt eines.
+ *
+ * Die Spaltenueberschrift steht ZUSAETZLICH in jedem `aria-label` der Zellen.
+ * Eine Tabelle vorgelesen zu bekommen heisst sonst: „Auswahlknopf, Auswahlknopf,
+ * Auswahlknopf" — die Zuordnung zur Spalte macht der Blick, und den gibt es
+ * dort nicht.
+ */
+export function StandardMatrix({
+    id,
+    title,
+    description,
+    spalten,
+    zeilen,
+}: MatrixProps) {
+    return (
+        <fieldset className="pm-fb-matrix" id={id}>
+            {title && <legend className="pm-fb-matrix__titel">{title}</legend>}
+            {description && <p className="pm-fb-hinweis">{description}</p>}
+
+            <table className="pm-fb-matrix__tabelle">
+                <thead>
+                    <tr>
+                        <td />
+                        {spalten.map((spalte) => (
+                            <th key={spalte} scope="col">
+                                {spalte}
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody>
+                    {zeilen.map((zeile) => (
+                        <tr key={zeile.name}>
+                            <th scope="row" className="pm-fb-matrix__zeile">
+                                {zeile.label}
+                                {zeile.required && <span aria-hidden="true"> *</span>}
+                                {zeile.hinweis && (
+                                    <span className="pm-fb-hinweis">{zeile.hinweis}</span>
+                                )}
+                            </th>
+
+                            {spalten.map((spalte) => {
+                                // Eine Zeile, die diese Spalte gar nicht
+                                // anbietet, bekommt eine LEERE Zelle statt
+                                // eines Knopfes, der nichts speichern darf.
+                                const option = zeile.optionen.find(
+                                    (o) => o.wert === spalte,
+                                );
+
+                                if (!option) {
+                                    return <td key={spalte} aria-hidden="true" />;
+                                }
+
+                                return (
+                                    <td key={spalte}>
+                                        <input
+                                            type="radio"
+                                            name={zeile.id}
+                                            value={option.wert}
+                                            checked={zeile.wert === option.wert}
+                                            required={zeile.required}
+                                            aria-label={`${zeile.label}: ${option.label}`}
+                                            onChange={() => zeile.onChange(option.wert)}
+                                        />
+                                    </td>
+                                );
+                            })}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+
+            {/*
+                Werte, die eine Zeile trägt und die Matrix nicht als Spalte
+                kennt. Sie STILL wegzulassen hiesse, eine gespeicherte Antwort
+                unsichtbar zu machen — und das naechste Speichern wuerfe sie weg.
+            */}
+            {zeilen.map((zeile) => {
+                const fremde = zeile.optionen.filter(
+                    (o) => !spalten.includes(o.wert),
+                );
+
+                if (fremde.length === 0) {
+                    return null;
+                }
+
+                return (
+                    <p key={zeile.name} className="pm-fb-hinweis">
+                        {zeile.label}: {fremde.map((o) => o.label).join(', ')}
+                    </p>
+                );
+            })}
+
+            {zeilen
+                .filter((zeile) => zeile.fehler)
+                .map((zeile) => (
+                    <p key={zeile.name} className="pm-fb-fehler">
+                        {zeile.label}: {zeile.fehler}
+                    </p>
+                ))}
+        </fieldset>
     );
 }

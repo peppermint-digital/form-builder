@@ -819,6 +819,44 @@ function GraphEditorInhalt({
                             />
                         </label>
 
+                        {gewaehlterRahmen.art === 'group' && (
+                            <label className="pm-fb-graph__feld">
+                                <span>Als Matrix — Spalten, eine je Zeile</span>
+                                <textarea
+                                    className="pm-fb-eingabe pm-fb-eingabe--mehrzeilig"
+                                    rows={4}
+                                    placeholder={'Sehr gut\nGut\nGeht so\nSchlecht'}
+                                    value={(gewaehlterRahmen.matrix ?? []).join('\n')}
+                                    onChange={(e) => {
+                                        const spalten = e.target.value.split('\n');
+                                        const gefuellt = spalten.filter(
+                                            (s) => s.trim() !== '',
+                                        );
+
+                                        onChange(
+                                            rahmenAendern(gelesen, gewaehlterRahmen.id, {
+                                                // Leer heißt: keine Matrix. Ohne
+                                                // diesen Weg wäre das Umschalten
+                                                // eine Einbahnstraße.
+                                                matrix:
+                                                    gefuellt.length === 0
+                                                        ? null
+                                                        : { spalten },
+                                            }),
+                                        );
+                                    }}
+                                />
+                                <small className="pm-fb-hinweis">
+                                    Ab zwei Spalten stehen die Fragen dieser Gruppe
+                                    nebeneinander in einer Tabelle statt untereinander.
+                                    Jede Frage bleibt eine eigene Antwort — die Spalten
+                                    sind nur die Darstellung. Damit die Antworten
+                                    geprüft werden, müssen dieselben Werte auch als
+                                    Optionen an den Feldern stehen.
+                                </small>
+                            </label>
+                        )}
+
                         {/*
                             „Auflösen" und nicht „Löschen": der Inhalt rückt
                             eine Ebene nach außen. Ein Rahmen ist Darstellung,

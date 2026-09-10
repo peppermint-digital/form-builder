@@ -1,0 +1,56 @@
+{
+  "name": "Auf einer Mehrfachauswahl fragt is, ob der Eintrag angekreuzt ist",
+  "warum": "Es gibt keinen einen Wert, dem etwas gleichen koennte. Wer im Editor „ist\" und „Workshop A\" waehlt, meint „Workshop A wurde gewaehlt\" — eine Regel, die daraufhin nie zutrifft, waere eine Falle ohne Fehlermeldung.",
+  "definition": {
+    "fields": [
+      {
+        "name": "workshops",
+        "label": "Welche Workshops?",
+        "type": "checkboxes",
+        "options": [
+          "Workshop A",
+          "Workshop B"
+        ]
+      },
+      {
+        "name": "warum_a",
+        "label": "Was hat dir an Workshop A gefallen?",
+        "type": "textarea"
+      }
+    ],
+    "conditions": [
+      {
+        "id": "r1",
+        "target": {
+          "kind": "field",
+          "ref": "warum_a"
+        },
+        "effect": "show",
+        "match": "all",
+        "tests": [
+          {
+            "field": "workshops",
+            "op": "is",
+            "value": "Workshop A"
+          }
+        ]
+      }
+    ]
+  },
+  "werte": {
+    "workshops": [
+      "Workshop A",
+      "Workshop B"
+    ]
+  },
+  "erwartet": {
+    "sichtbareFelder": [
+      "warum_a",
+      "workshops"
+    ],
+    "pflichtFelder": [],
+    "sichtbareGruppen": [],
+    "sichtbareSchritte": [],
+    "zyklen": []
+  }
+}

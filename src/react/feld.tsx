@@ -1,7 +1,12 @@
 import {
     labelStehtImFeld,
+    listeLesen,
     nutzbareOptionen,
     optionenMitBestandswert,
+    optionenMitBestandswerten,
+    stufenwerte,
+    textLesen,
+    type Feldwert,
     type FormularFeld,
 } from '../core';
 import {
@@ -10,8 +15,10 @@ import {
     StandardBeschriftung,
     StandardFehler,
     StandardHinweis,
+    StandardMehrfachauswahl,
     StandardMehrzeilig,
     StandardOptionsgruppe,
+    StandardSkala,
     StandardText,
 } from './standard';
 import type { EigenerFeldTyp, KomponentenSatz } from './typen';
@@ -19,14 +26,20 @@ import type { EigenerFeldTyp, KomponentenSatz } from './typen';
 export interface FormularFeldEingabeProps {
     feld: FormularFeld;
     /**
-     * Immer eine Zeichenkette, auch bei Ankreuzfeldern ('1' oder '0').
+     * Eine Zeichenkette — auch bei Ankreuzfeldern ('1' oder '0') — mit EINER
+     * Ausnahme: `checkboxes` fuehrt eine Liste.
      *
-     * Der Grund liegt in der Ablage: die Antworten liegen als JSON-Objekt in
-     * einer Spalte, und ein echtes `true` haette dort neben lauter Texten
-     * gestanden. Wer das aendert, muss alle Bestandsdaten mit aendern.
+     * Der Grund fuer die Zeichenketten liegt in der Ablage: die Antworten
+     * liegen als JSON-Objekt in einer Spalte, und ein echtes `true` haette
+     * dort neben lauter Texten gestanden. Wer DAS aendert, muss alle
+     * Bestandsdaten mit aendern.
+     *
+     * Fuer die Mehrfachauswahl gilt das nicht: Sie ist ein neuer Typ, es gibt
+     * keinen Bestand, der sich aendern muesste. Die Begruendung steht bei
+     * `Feldwert`.
      */
-    wert: string;
-    onChange: (wert: string) => void;
+    wert: Feldwert;
+    onChange: (wert: Feldwert) => void;
     fehler?: string;
     komponenten?: KomponentenSatz;
     eigeneTypen?: Record<string, EigenerFeldTyp>;
@@ -88,6 +101,8 @@ export default function FormularFeldEingabe({
     const Mehrzeilig = komponenten.Mehrzeilig ?? StandardMehrzeilig;
     const Auswahl = komponenten.Auswahl ?? StandardAuswahl;
     const Optionsgruppe = komponenten.Optionsgruppe ?? StandardOptionsgruppe;
+    const Mehrfachauswahl = komponenten.Mehrfachauswahl ?? StandardMehrfachauswahl;
+    const Skala = komponenten.Skala ?? StandardSkala;
     const Ankreuz = komponenten.Ankreuz ?? StandardAnkreuz;
     const Beschriftung = komponenten.Beschriftung ?? StandardBeschriftung;
     const Fehler = komponenten.Fehler ?? StandardFehler;
@@ -105,6 +120,13 @@ export default function FormularFeldEingabe({
         ...(beschrieben ? { 'aria-describedby': beschrieben } : {}),
         ...(fehler ? { 'aria-invalid': true as const } : {}),
     };
+
+    // Zwei Lesarten desselben Wertes, einmal oben bestimmt: Die meisten
+    // Bausteine wollen Text, die Mehrfachauswahl will eine Liste. Das in
+    // jedem Zweig einzeln zu entscheiden waere dieselbe Regel an sieben
+    // Stellen — und an einer davon irgendwann anders.
+    const text = textLesen(wert);
+    const liste = listeLesen(wert);
 
     const eigener = eigeneTypen[feld.type];
 
@@ -135,7 +157,7 @@ export default function FormularFeldEingabe({
                     <Mehrzeilig
                         {...gemeinsam}
                         autoFocus={autoFocus}
-                        wert={wert}
+                        wert={text}
                         onChange={onChange}
                         {...(feld.placeholder ? { placeholder: feld.placeholder } : {})}
                     />
@@ -145,8 +167,8 @@ export default function FormularFeldEingabe({
                 return (
                     <Auswahl
                         {...gemeinsam}
-                        wert={wert}
-                        optionen={optionenMitBestandswert(feld, wert)}
+                        wert={text}
+                        optionen={optionenMitBestandswert(feld, text)}
                         onChange={onChange}
                         {...(feld.placeholder ? { placeholder: feld.placeholder } : {})}
                     />
@@ -156,8 +178,49 @@ export default function FormularFeldEingabe({
                 return (
                     <Optionsgruppe
                         {...gemeinsam}
-                        wert={wert}
-                        optionen={optionenMitBestandswert(feld, wert)}
+                        wert={text}
+                        optionen={optionenMitBestandswert(feld, text)}
+                        onChange={onChange}
+                    />
+                );
+
+            case 'checkboxes':
+                return (
+                    <Mehrfachauswahl
+                        {...gemeinsam}
+                        wert={liste}
+                        // Auch hier die Bestandswerte: eine Option, die nach
+                        // der Antwort umbenannt wurde, muss angekreuzt bleiben
+                        // — sonst wirft das naechste Speichern sie weg, und
+                        // die Maske sieht aus, als waere dort nie ein Kreuz
+                        // gewesen.
+                        optionen={optionenMitBestandswerten(feld, liste)}
+                        onChange={onChange}
+                    />
+                );
+
+            /*
+             * Ein NPS geht durch DENSELBEN Baustein wie die Skala, und das
+             * ist Absicht: Jeder neue Eintrag in `KomponentenSatz` ist eine
+             * Komponente, die JEDE Anwendung nachreichen muss, bevor der Typ
+             * bei ihr ankommt. Ein NPS sieht aus wie eine Skala mit elf
+             * Stufen — dass er anders GERECHNET wird, geht die Anzeige nichts
+             * an.
+             */
+            case 'nps':
+            case 'scale':
+                return (
+                    <Skala
+                        {...gemeinsam}
+                        wert={text}
+                        stufen={stufenwerte(feld)}
+                        darstellung={
+                            feld.type === 'nps'
+                                ? 'zahlen'
+                                : (feld.skalaDarstellung ?? 'zahlen')
+                        }
+                        {...(feld.skalaVon ? { von: feld.skalaVon } : {})}
+                        {...(feld.skalaBis ? { bis: feld.skalaBis } : {})}
                         onChange={onChange}
                     />
                 );
@@ -167,7 +230,7 @@ export default function FormularFeldEingabe({
                     <Ankreuz
                         {...gemeinsam}
                         label={feld.label}
-                        angekreuzt={wert === '1'}
+                        angekreuzt={text === '1'}
                         onChange={(an) => onChange(an ? '1' : '0')}
                     />
                 );
@@ -178,7 +241,7 @@ export default function FormularFeldEingabe({
                         {...gemeinsam}
                         autoFocus={autoFocus}
                         type={eingabeTyp(feld.type)}
-                        wert={wert}
+                        wert={text}
                         onChange={onChange}
                         {...(feld.placeholder ? { placeholder: feld.placeholder } : {})}
                     />

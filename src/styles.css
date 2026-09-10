@@ -80,6 +80,100 @@
     gap: 0.5rem;
 }
 
+.pm-fb-mehrfachauswahl {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.pm-fb-skala {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.pm-fb-skala__stufen {
+    display: flex;
+    gap: 0.25rem;
+}
+
+/*
+ * Die Stufe ist ein LABEL um den Knopf, nicht der Knopf selbst — und sie traegt
+ * die Mindestgroesse. Ein `input[type=radio]` ist rund 16 px gross; auf dem
+ * Telefon ist das kein Tippziel. Klickbar ist ohnehin das Label, also bekommt
+ * es die Flaeche.
+ */
+.pm-fb-skala__stufe {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0.25rem;
+    cursor: pointer;
+}
+
+.pm-fb-skala__ende {
+    font-size: 0.875rem;
+    opacity: 0.7;
+}
+
+.pm-fb-matrix {
+    border: 1px solid currentColor;
+    border-radius: 0.5rem;
+    padding: 1rem;
+
+    /*
+     * Ein `<fieldset>` hat in allen Browsern `min-width: min-content` als
+     * Vorgabe und schrumpft nicht unter seinen Inhalt. Ohne diese Zeile rollt
+     * der Kasten darunter nie — stattdessen laeuft die ganze SEITE ueber.
+     * Gemessen bei 390 px: 44 px Ueberlauf am Dokument, waehrend der
+     * Rollbereich `scrollWidth === clientWidth` meldete und damit aussah, als
+     * waere alles in Ordnung.
+     */
+    min-width: 0;
+}
+
+/*
+ * Die Tabelle scrollt IN ihrem eigenen Kasten, nicht die Seite.
+ *
+ * Eine Matrix mit fuenf Spalten passt auf kein Telefon. Die Wahl ist: die
+ * ganze Seite laeuft waagerecht ueber, oder die Tabelle bekommt einen eigenen
+ * Rollbereich. Das Erste macht das ganze Formular unbenutzbar, das Zweite nur
+ * diese eine Frage etwas unbequemer.
+ */
+.pm-fb-matrix__tabelle {
+    display: block;
+    overflow-x: auto;
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.pm-fb-matrix__tabelle th,
+.pm-fb-matrix__tabelle td {
+    padding: 0.5rem;
+    text-align: center;
+    /* 44 px — dasselbe Tippziel wie ueberall sonst. */
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+}
+
+/*
+ * Die Zeilenbeschriftung bleibt beim Rollen stehen. Ohne sie weiss beim
+ * dritten Wischen niemand mehr, welche Frage in dieser Zeile steht.
+ */
+.pm-fb-matrix__zeile {
+    position: sticky;
+    left: 0;
+    text-align: left;
+    font-weight: 500;
+    background: inherit;
+    min-width: 8rem;
+}
+
 .pm-fb-hinweis {
     font-size: 0.875rem;
     opacity: 0.7;
@@ -532,4 +626,171 @@
 
 .pm-fb-knoten__system {
     font-style: italic;
+}
+
+/*
+|-------------------------------------------------------------------------------
+| Der gefuehrte Aufbau
+|-------------------------------------------------------------------------------
+*/
+
+.pm-fb-umfrage {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.pm-fb-umfrage__hinweis,
+.pm-fb-umfrage__leer {
+    font-size: 0.875rem;
+    opacity: 0.7;
+}
+
+.pm-fb-frage {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    border: 1px solid currentColor;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    /* Damit die Karte in einem Flex-Vater unter ihren Inhalt schrumpfen darf. */
+    min-width: 0;
+}
+
+.pm-fb-frage__kopf {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.pm-fb-frage__nummer {
+    font-size: 0.75rem;
+    opacity: 0.6;
+}
+
+.pm-fb-frage__werkzeuge {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+}
+
+/*
+ * Die Frage IST die Ueberschrift der Karte. Deshalb groesser als die Felder
+ * darunter — wer die Karte ueberfliegt, soll die Frage lesen und nicht die
+ * Einstellungen.
+ */
+.pm-fb-frage__text {
+    font-size: 1.0625rem;
+    font-weight: 500;
+}
+
+.pm-fb-frage__pflicht {
+    align-self: end;
+    padding-bottom: 0.5rem;
+}
+
+.pm-fb-frage__mehr {
+    align-self: start;
+}
+
+.pm-fb-frage__erweitert {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    border-top: 1px solid currentColor;
+    padding-top: 0.75rem;
+}
+
+.pm-fb-optionen {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.pm-fb-optionen__zeile {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.pm-fb-optionen__zeile .pm-fb-eingabe {
+    flex: 1;
+    min-width: 0;
+}
+
+.pm-fb-optionen__leiste {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.pm-fb-typwahl {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    border: 1px dashed currentColor;
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+
+.pm-fb-typwahl__kopf {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.pm-fb-typwahl__liste {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: 0.5rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.pm-fb-typwahl__eintrag {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    width: 100%;
+    /* 44 px Tippziel — dieselbe Regel wie ueberall. */
+    min-height: 2.75rem;
+    text-align: left;
+    padding: 0.75rem;
+    border: 1px solid currentColor;
+    border-radius: 0.375rem;
+    background: transparent;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+}
+
+.pm-fb-typwahl__eintrag span {
+    font-size: 0.8125rem;
+    opacity: 0.75;
+}
+
+.pm-fb-typwahl__eintrag code {
+    font-size: 0.75rem;
+    opacity: 0.6;
+}
+
+/*
+ * Die Werkzeuge einer Fragekarte und die Griffe einer Optionszeile tragen das
+ * 44-px-Tippziel.
+ *
+ * Gemessen bei 390 px: 35 px — die Vorgabe von `.pm-fb-knopf`. Sie hier
+ * anzuheben statt `.pm-fb-knopf` selbst ist Absicht: Die Klasse teilen sich
+ * Graph- und Listen-Editor, und deren Leisten neu zu vermessen ist eine eigene
+ * Aufgabe. Was ich baue, faengt richtig an; was schon da ist, wird nicht
+ * nebenbei umgestellt.
+ */
+.pm-fb-frage__werkzeuge .pm-fb-knopf,
+.pm-fb-optionen__zeile .pm-fb-knopf,
+.pm-fb-optionen__leiste .pm-fb-knopf {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
 }

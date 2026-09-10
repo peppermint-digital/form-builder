@@ -20,7 +20,29 @@ export type StandardFeldTyp =
     | 'date'
     | 'select'
     | 'checkbox'
-    | 'radio';
+    | 'checkboxes'
+    | 'radio'
+    | 'scale'
+    | 'nps';
+
+/**
+ * Der Wert einer Antwort.
+ *
+ * Zeichenketten, mit EINER Ausnahme: `checkboxes` speichert eine Liste.
+ *
+ * Die Zeichenketten-Regel war bis hierher ausnahmslos, und zwar mit Grund —
+ * die Antworten liegen als JSON-Objekt in einer Spalte, ein echtes `true`
+ * haette dort neben lauter Texten gestanden. Der Kommentar an `checkbox`
+ * warnt deshalb: wer das aendert, muss alle Bestandsdaten mit aendern.
+ *
+ * Fuer `checkboxes` gilt das NICHT, und der Unterschied ist der springende
+ * Punkt: Es ist ein NEUER Typ. Kein gespeicherter Wert aendert seine Gestalt,
+ * weil es keinen gibt — nur der Typ wird weiter. Eine Mehrfachauswahl als
+ * Trennzeichen-Text abzulegen waere die scheinbar sparsame Wahl und die
+ * schlechtere: `contains` waere dann ein Teilstring-Vergleich, und
+ * „Workshop A" traefe auch auf „Workshop AB" zu.
+ */
+export type Feldwert = string | string[];
 
 /**
  * Der Typ eines Feldes.
@@ -58,8 +80,32 @@ export interface FormularFeld {
     placeholder?: string;
     required?: boolean;
 
-    /** Nur fuer `select` und `radio`. */
+    /** Nur fuer `select`, `radio` und `checkboxes`. */
     options?: string[];
+
+    /**
+     * Nur fuer `scale`: wie viele Stufen die Skala hat. Vorgabe 5.
+     *
+     * Eine Skala ist damit eine FERTIGE Frage und keine, die man sich aus
+     * Auswahlknoepfen zusammenbaut. Genau darin liegt der Unterschied
+     * zwischen einem Formular-Baukasten und einem Umfrage-Werkzeug: Wer eine
+     * Bewertung braucht, waehlt sie aus, statt fuenf Optionszeilen zu tippen —
+     * und dann sieht jede Skala im Haus gleich aus.
+     */
+    stufen?: number;
+
+    /** Nur fuer `scale`: die Beschriftung der beiden Enden. */
+    skalaVon?: string;
+    skalaBis?: string;
+
+    /**
+     * Nur fuer `scale`: wie die Stufen aussehen sollen.
+     *
+     * Ein WUNSCH an die Anwendung, keine Zusage. Wer keine Sterne zeichnen
+     * kann, zeichnet Zahlen — der gespeicherte Wert ist in jedem Fall die
+     * Stufe als Zeichenkette, und daran haengt die Auswertung.
+     */
+    skalaDarstellung?: 'zahlen' | 'sterne' | 'smilies';
 
     /** Hilfetext unter dem Feld. */
     hinweis?: string;
@@ -113,6 +159,39 @@ export interface LayoutGruppe {
     id: string;
     title?: string;
     description?: string;
+
+    /**
+     * Macht aus der Gruppe eine MATRIX: eine Zeile je Feld, dieselben Spalten
+     * fuer alle.
+     *
+     * ## Warum das Layout und nicht ein Feldtyp
+     *
+     * Eine Matrix erzeugt MEHRERE Antworten — eine je Zeile. Ein
+     * `FormularFeld` hat aber genau einen `name`, und unter dem liegt genau
+     * eine Antwort. Ein Feldtyp `matrix` muesste den Vertrag brechen und einen
+     * verschachtelten Wert speichern; jede Leseseite muesste danach lernen,
+     * dass ein Wert auch ein Objekt sein kann.
+     *
+     * Stattdessen ist eine Matrix-Zeile ein GEWOEHNLICHES `radio`-Feld mit
+     * eigenem Datenschluessel. Bedingungen greifen je Zeile, der Export hat
+     * eine Spalte je Zeile, und die Auswertung rechnet ohne Sonderfall.
+     *
+     * ## Und warum sie damit wegwerfbar ist
+     *
+     * Faellt diese Angabe weg, stehen dieselben Fragen untereinander statt
+     * nebeneinander. Unschoener, aber vollstaendig — kein Datenverlust. Genau
+     * das ist die Zusage des Layouts: man darf es wegwerfen, umbauen und neu
+     * erfinden, ohne dass eine Antwort ihren Platz verliert.
+     *
+     * Die Spalten stehen ZUSAETZLICH als `options` an jedem Zeilenfeld. Das
+     * ist keine Dopplung aus Bequemlichkeit: Daran haengt die
+     * `in:`-Validierung, und die darf nicht davon abhaengen, ob eine
+     * Layout-Angabe erhalten geblieben ist.
+     */
+    matrix?: {
+        spalten: string[];
+    };
+
     children: LayoutKnoten[];
 }
 
@@ -149,6 +228,20 @@ export type LayoutKnoten =
  * liegen als JSON neben lauter Texten, ein Ankreuzfeld kommt als '1' oder '0'
  * an. Ein Vergleich, der Typen voraussetzt, die es dort nicht gibt, ist eine
  * Regel, die im Editor plausibel aussieht und im Formular nie zutrifft.
+ *
+ * ## Auf einer Mehrfachauswahl
+ *
+ * Dort gibt es keinen einen Wert, dem etwas gleichen koennte. Deshalb bedeuten
+ * `is`/`is_not` und `contains`/`not_contains` dasselbe: **ist diese Option
+ * angekreuzt**, verglichen als ganzer Eintrag.
+ *
+ * Dass `is` hier wie `contains` wirkt, ist eine Entscheidung gegen die
+ * Alternative, es fehlschlagen zu lassen. Wer im Editor „ist" und „Workshop A"
+ * waehlt, meint „Workshop A wurde gewaehlt" — eine Regel, die daraufhin nie
+ * zutrifft, ist eine Falle ohne Fehlermeldung.
+ *
+ * `gt`/`lt` treffen auf einer Liste nie zu: Eine Menge ist nicht groesser als
+ * ein Text. `filled`/`empty` fragen, ob ueberhaupt etwas angekreuzt ist.
  */
 export type Vergleich =
     | 'is'

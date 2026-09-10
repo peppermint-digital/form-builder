@@ -22,6 +22,20 @@ export {
     zeileVonFeld,
 } from './bearbeiten';
 export type { Ablageziel } from './bearbeiten';
+export { feldDuplizieren, feldUmordnen } from './bearbeiten';
+export {
+    listeLesen,
+    NPS_DETRAKTOR_BIS,
+    NPS_PROMOTOR_AB,
+    NPS_WERTE,
+    optionenMitBestandswerten,
+    stufenwerte,
+    textLesen,
+    wertLeer,
+    STUFEN_MAX,
+    STUFEN_MIN,
+    STUFEN_VORGABE,
+} from './definition';
 export {
     definitionLesen,
     felderInReihenfolge,
@@ -48,6 +62,7 @@ export type {
     Bedingungsregel,
     Bedingungsziel,
     FeldTyp,
+    Feldwert,
     FormularDefinition,
     FormularFeld,
     GraphDarstellung,

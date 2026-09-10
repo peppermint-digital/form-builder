@@ -1,0 +1,27 @@
+{
+  "name": "Eine Mehrfachauswahl vergleicht ganze Eintraege, keine Teilstrings",
+  "warum": "Der Grund, warum die Liste als Liste gespeichert wird und nicht als Trennzeichen-Text: „Workshop A\" darf nicht auf „Workshop AB\" zutreffen. Bei einem zusammengefuegten Text taete es das, und niemand saehe der Regel an, warum sie zu oft greift.",
+  "definition": {
+    "fields": [
+      { "name": "workshops", "label": "Welche Workshops?", "type": "checkboxes", "options": ["Workshop A", "Workshop AB"] },
+      { "name": "warum_a", "label": "Was hat dir an Workshop A gefallen?", "type": "textarea" }
+    ],
+    "conditions": [
+      {
+        "id": "r1",
+        "target": { "kind": "field", "ref": "warum_a" },
+        "effect": "show",
+        "match": "all",
+        "tests": [{ "field": "workshops", "op": "contains", "value": "Workshop A" }]
+      }
+    ]
+  },
+  "werte": { "workshops": ["Workshop AB"] },
+  "erwartet": {
+    "sichtbareFelder": ["workshops"],
+    "pflichtFelder": [],
+    "sichtbareGruppen": [],
+    "sichtbareSchritte": [],
+    "zyklen": []
+  }
+}

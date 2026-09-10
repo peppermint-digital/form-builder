@@ -289,6 +289,31 @@ function pruefungTrifftZu(
     const wert = wertLesen(pruefung.field, werte, sichtbareFelder);
     const vergleich = pruefung.value ?? '';
 
+    // Auf einer Mehrfachauswahl gibt es keinen einen Wert, dem etwas gleichen
+    // koennte — es gibt eine Menge. `is` und `contains` fragen deshalb
+    // dasselbe: steht dieser Eintrag darin? Die Begruendung steht am Typ
+    // `Vergleich`.
+    if (Array.isArray(wert)) {
+        const enthalten = vergleich !== '' && wert.includes(vergleich);
+
+        switch (pruefung.op) {
+            case 'is':
+            case 'contains':
+                return enthalten;
+            case 'is_not':
+            case 'not_contains':
+                return !enthalten;
+            case 'filled':
+                return wert.length > 0;
+            case 'empty':
+                return wert.length === 0;
+            default:
+                // `gt`/`lt` auf einer Menge. Es gibt keine Lesart davon, die
+                // im Formular jemanden nicht ueberraschen wuerde.
+                return false;
+        }
+    }
+
     switch (pruefung.op) {
         case 'is':
             return wert === vergleich;
@@ -333,7 +358,7 @@ function wertLesen(
     name: string,
     werte: Werte,
     sichtbareFelder: Set<string>,
-): string {
+): string | string[] {
     if (!sichtbareFelder.has(name)) {
         return '';
     }
@@ -346,6 +371,15 @@ function wertLesen(
 
     if (roh === true) {
         return '1';
+    }
+
+    // Eine Mehrfachauswahl kommt als Liste an. Ohne diesen Zweig lief hier
+    // `String(['a','b'])` und ergab `'a,b'` — waehrend die PHP-Seite fuer
+    // dieselbe Antwort `''` lieferte (`is_scalar(...) ? ... : ''`). Zwei
+    // Auswertungen derselben Regel mit verschiedenem Ergebnis, und keine von
+    // beiden meldet etwas.
+    if (Array.isArray(roh)) {
+        return roh.map((eintrag) => String(eintrag)).filter((eintrag) => eintrag !== '');
     }
 
     return String(roh);

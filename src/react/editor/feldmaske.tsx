@@ -1,3 +1,4 @@
+import { STUFEN_MAX, STUFEN_MIN, STUFEN_VORGABE } from '../../core';
 import type { FormularFeld, StandardFeldTyp } from '../../core';
 
 export interface FeldTypAuswahl {
@@ -14,8 +15,17 @@ export const STANDARD_TYPEN: Array<{ wert: StandardFeldTyp; label: string }> = [
     { wert: 'number', label: 'Zahl' },
     { wert: 'date', label: 'Datum' },
     { wert: 'select', label: 'Auswahlliste' },
-    { wert: 'radio', label: 'Auswahlknöpfe' },
-    { wert: 'checkbox', label: 'Ankreuzfeld' },
+    { wert: 'radio', label: 'Auswahlknöpfe (eine Antwort)' },
+    { wert: 'checkboxes', label: 'Mehrfachauswahl (mehrere Antworten)' },
+    { wert: 'scale', label: 'Bewertungsskala' },
+    { wert: 'nps', label: 'Weiterempfehlung (NPS, 0–10)' },
+    { wert: 'checkbox', label: 'Ankreuzfeld (Zustimmung)' },
+];
+
+const SKALA_DARSTELLUNGEN: Array<{ wert: string; label: string }> = [
+    { wert: 'zahlen', label: 'Zahlen' },
+    { wert: 'sterne', label: 'Sterne' },
+    { wert: 'smilies', label: 'Smilies' },
 ];
 
 interface Props {
@@ -58,7 +68,10 @@ export default function Feldmaske({
     quellen = [],
 }: Props) {
     const typen = [...STANDARD_TYPEN, ...zusatzTypen];
-    const hatOptionen = feld.type === 'select' || feld.type === 'radio';
+    const hatOptionen =
+        feld.type === 'select' || feld.type === 'radio' || feld.type === 'checkboxes';
+    const istSkala = feld.type === 'scale';
+    const istNps = feld.type === 'nps';
 
     return (
         <div className="pm-fb-maske">
@@ -128,6 +141,90 @@ export default function Feldmaske({
                         onChange={(e) => onChange({ options: e.target.value.split('\n') })}
                     />
                 </label>
+            )}
+
+            {istSkala && (
+                <>
+                    <div className="pm-fb-maske__reihe">
+                        <label className="pm-fb-maske__feld">
+                            <span>Stufen</span>
+                            <input
+                                className="pm-fb-eingabe"
+                                type="number"
+                                min={STUFEN_MIN}
+                                max={STUFEN_MAX}
+                                value={feld.stufen ?? STUFEN_VORGABE}
+                                /*
+                                 * Hier wird bewusst NICHT begrenzt, waehrend
+                                 * getippt wird: Wer „11" tippen will, kommt
+                                 * an der „1" vorbei, und ein Feld, das die
+                                 * Eingabe unter dem Cursor korrigiert, laesst
+                                 * sich nicht bedienen. Die Schranken sitzen
+                                 * beim Lesen (`stufenwerte`) und auf der
+                                 * Serverseite.
+                                 */
+                                onChange={(e) =>
+                                    onChange({ stufen: Number(e.target.value) })
+                                }
+                            />
+                            <small className="pm-fb-hinweis">
+                                {STUFEN_MIN} bis {STUFEN_MAX}. Für einen NPS sind
+                                es 11 (0 bis 10).
+                            </small>
+                        </label>
+
+                        <label className="pm-fb-maske__feld">
+                            <span>Darstellung</span>
+                            <select
+                                className="pm-fb-eingabe"
+                                value={feld.skalaDarstellung ?? 'zahlen'}
+                                onChange={(e) =>
+                                    onChange({
+                                        skalaDarstellung: e.target
+                                            .value as FormularFeld['skalaDarstellung'],
+                                    })
+                                }
+                            >
+                                {SKALA_DARSTELLUNGEN.map((art) => (
+                                    <option key={art.wert} value={art.wert}>
+                                        {art.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                    </div>
+
+                    <div className="pm-fb-maske__reihe">
+                        <label className="pm-fb-maske__feld">
+                            <span>Beschriftung links</span>
+                            <input
+                                className="pm-fb-eingabe"
+                                value={feld.skalaVon ?? ''}
+                                placeholder="gar nicht zufrieden"
+                                onChange={(e) => onChange({ skalaVon: e.target.value })}
+                            />
+                        </label>
+
+                        <label className="pm-fb-maske__feld">
+                            <span>Beschriftung rechts</span>
+                            <input
+                                className="pm-fb-eingabe"
+                                value={feld.skalaBis ?? ''}
+                                placeholder="sehr zufrieden"
+                                onChange={(e) => onChange({ skalaBis: e.target.value })}
+                            />
+                        </label>
+                    </div>
+                </>
+            )}
+
+            {istNps && (
+                <p className="pm-fb-hinweis">
+                    Feste Skala von 0 bis 10 — sie lässt sich nicht ändern.
+                    Genau daran hängt die Auswertung: Wer 9 oder 10 gibt, zählt
+                    als Promotor, wer 0 bis 6 gibt, als Detraktor. Der Wert
+                    eines NPS liegt darin, dass alle dieselbe Skala benutzen.
+                </p>
             )}
 
             {quellen.length > 0 && (

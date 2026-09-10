@@ -4,8 +4,10 @@ import {
     abschnittHinzufuegen,
     definitionBereinigen,
     feldAendern,
+    feldDuplizieren,
     feldEntfernen,
     feldHinzufuegen,
+    feldUmordnen,
     feldVerschieben,
     knotenEntfernen,
     layoutSicherstellen,
@@ -318,5 +320,124 @@ describe('Bearbeiten innerhalb eines Rahmens', () => {
         expect(gruppe && gruppe.type === 'group' ? gruppe.children : []).toEqual([
             { type: 'row', columns: [['a']] },
         ]);
+    });
+});
+
+describe('feldDuplizieren', () => {
+    const basis = (): FormularDefinition => ({
+        fields: [
+            { name: 'a', label: 'Erste Frage', type: 'radio', options: ['x', 'y'], required: true },
+            { name: 'b', label: 'Zweite Frage', type: 'text' },
+        ],
+        layout: [
+            { type: 'row', columns: [['a']] },
+            { type: 'row', columns: [['b']] },
+        ],
+    });
+
+    it('legt die Kopie direkt unter das Original', () => {
+        const neu = feldDuplizieren(basis(), 'a');
+        const reihenfolge = neu.layout!.flatMap((k) =>
+            k.type === 'row' ? k.columns.flat() : [],
+        );
+
+        // Am Ende des Formulars wäre die Kopie ein Sprung ohne Grund.
+        expect(reihenfolge).toEqual(['a', expect.any(String), 'b']);
+        expect(reihenfolge[1]).not.toBe('a');
+    });
+
+    it('gibt der Kopie einen neuen Datenschluessel', () => {
+        const neu = feldDuplizieren(basis(), 'a');
+        const namen = neu.fields.map((f) => f.name);
+
+        // Zwei Felder mit demselben Namen beschreiben dieselbe Stelle in den
+        // Antworten — die zweite überschriebe die erste.
+        expect(new Set(namen).size).toBe(namen.length);
+    });
+
+    it('nimmt alles mit, was man sonst abtippen muesste', () => {
+        const kopie = feldDuplizieren(basis(), 'a').fields.at(-1)!;
+
+        expect(kopie.label).toBe('Erste Frage');
+        expect(kopie.options).toEqual(['x', 'y']);
+        expect(kopie.required).toBe(true);
+    });
+
+    it('kopiert die id NICHT mit', () => {
+        const mitId: FormularDefinition = {
+            fields: [{ id: 'f1', name: 'a', label: 'A', type: 'text' }],
+            layout: [{ type: 'row', columns: [['a']] }],
+        };
+
+        // Zweimal dieselbe `id`, und der Editor bearbeitet beim Klick auf die
+        // eine die andere.
+        expect(feldDuplizieren(mitId, 'a').fields.at(-1)!.id).toBeUndefined();
+    });
+
+    it('laesst Bedingungen und Verzweigungen unangetastet', () => {
+        const mitRegeln: FormularDefinition = {
+            ...basis(),
+            conditions: [
+                {
+                    id: 'r1',
+                    target: { kind: 'field', ref: 'b' },
+                    effect: 'show',
+                    match: 'all',
+                    tests: [{ field: 'a', op: 'is', value: 'x' }],
+                },
+            ],
+        };
+
+        expect(feldDuplizieren(mitRegeln, 'a').conditions).toEqual(mitRegeln.conditions);
+    });
+});
+
+describe('feldUmordnen', () => {
+    const inSchritt = (): FormularDefinition => ({
+        fields: [
+            { name: 'a', label: 'A', type: 'text' },
+            { name: 'b', label: 'B', type: 'text' },
+            { name: 'c', label: 'C', type: 'text' },
+        ],
+        layout: [
+            {
+                type: 'step',
+                id: 's1',
+                children: [
+                    { type: 'row', columns: [['a']] },
+                    { type: 'row', columns: [['b']] },
+                ],
+            },
+            { type: 'row', columns: [['c']] },
+        ],
+    });
+
+    const reihenfolgeIn = (d: FormularDefinition, i: number): string[] => {
+        const knoten = d.layout![i]!;
+
+        return knoten.type === 'step' || knoten.type === 'group'
+            ? knoten.children.flatMap((k) => (k.type === 'row' ? k.columns.flat() : []))
+            : [];
+    };
+
+    it('findet die Frage ueber ihren Namen, nicht ueber einen Index', () => {
+        // Ein linearer Builder kennt keine Indizes und keine Pfade — er kennt
+        // Fragen.
+        expect(reihenfolgeIn(feldUmordnen(inSchritt(), 'b', 'hoch'), 0)).toEqual(['b', 'a']);
+    });
+
+    it('holt eine Frage nicht aus ihrem Schritt heraus', () => {
+        // Ein Pfeil, der eine Frage aus ihrem Schritt befördert, wäre ein Umzug
+        // und keine Reihenfolge.
+        const neu = feldUmordnen(inSchritt(), 'a', 'hoch');
+
+        expect(reihenfolgeIn(neu, 0)).toEqual(['a', 'b']);
+        expect(neu.layout![1]).toEqual({ type: 'row', columns: [['c']] });
+    });
+
+    it('laesst eine unbekannte Frage die Definition unveraendert', () => {
+        const vorher = inSchritt();
+
+        expect(feldUmordnen(vorher, 'gibtsnicht', 'runter')).toEqual(vorher);
     });
 });
