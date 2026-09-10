@@ -23,6 +23,11 @@ interface Props {
     anzahl: number;
     woerter: Woerter;
     typen: Typvorschlag[];
+    /** Die Bloecke, in die diese Frage wandern kann. */
+    bloecke: Array<{ id: string; titel: string }>;
+    /** In welchem Block sie steht — `null`, wenn sie frei steht. */
+    aktuellerBlock: string | null;
+    onBlock: (id: string | null) => void;
     /** Gesetzt, wenn dieses Feld gesperrt ist — der Text ist die Begründung. */
     sperrgrund?: string;
     onChange: (aenderungen: Partial<FormularFeld>) => void;
@@ -56,6 +61,9 @@ export default function Fragekarte({
     anzahl,
     woerter,
     typen,
+    bloecke,
+    aktuellerBlock,
+    onBlock,
     sperrgrund,
     onChange,
     onDuplizieren,
@@ -239,9 +247,10 @@ export default function Fragekarte({
             {logikOffen && (
                 <Bedingungen
                     definition={definition}
-                    feld={feld}
+                    ziel={{ kind: 'field', ref: feld.name }}
                     vorgaenger={vorgaenger}
                     woerter={woerter}
+                    was={woerter.einzahl}
                     onChange={onDefinition}
                 />
             )}
@@ -265,6 +274,37 @@ export default function Fragekarte({
                             onChange={(e) => onChange({ placeholder: e.target.value })}
                         />
                     </label>
+
+                    {bloecke.length > 0 && (
+                        <label className="pm-fb-maske__feld">
+                            <span>Gehört zum Block</span>
+                            <select
+                                className="pm-fb-eingabe"
+                                // Ausdrueckliche Beschriftung: Der Hinweistext
+                                // steht im selben `<label>` und wanderte sonst
+                                // in den Namen des Feldes — vorgelesen waere
+                                // das ein Absatz statt einer Beschriftung.
+                                aria-label="Gehört zum Block"
+                                value={aktuellerBlock ?? ''}
+                                onChange={(e) => onBlock(e.target.value || null)}
+                            >
+                                {/* Der leere Eintrag ist der Weg zurück. Ohne
+                                    ihn wäre das Einsortieren eine
+                                    Einbahnstraße. */}
+                                <option value="">— keinem —</option>
+                                {bloecke.map((b) => (
+                                    <option key={b.id} value={b.id}>
+                                        {b.titel}
+                                    </option>
+                                ))}
+                            </select>
+                            <small className="pm-fb-hinweis">
+                                Alle {woerter.mehrzahl} eines Blocks hängen an
+                                DESSEN Bedingung — eine Regel statt einer je
+                                {' '}{woerter.einzahl}.
+                            </small>
+                        </label>
+                    )}
 
                     <label className="pm-fb-maske__feld">
                         <span>Datenschlüssel</span>

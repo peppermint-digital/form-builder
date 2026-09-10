@@ -14,6 +14,7 @@ import {
 } from '../../core';
 import type { Woerter } from './fragekarte';
 
+
 /**
  * Die Vergleiche in der Sprache, in der jemand die Frage stellt.
  *
@@ -41,11 +42,20 @@ const WIRKUNGEN: Array<{ wert: Wirkung; label: string }> = [
 
 interface Props {
     definition: FormularDefinition;
-    /** Die Frage, um deren Sichtbarkeit es geht. */
-    feld: FormularFeld;
-    /** Alle Felder VOR dieser — nur die koennen ueber sie entscheiden. */
+    /**
+     * Worum es geht — eine Frage oder ein ganzer Block.
+     *
+     * Ein Block ist der Grund, warum das hier nicht nur Felder kennt: „Wenn
+     * Nein, dann zeige DIESE VIER Fragen" ist mit vier Regeln zwar moeglich,
+     * aber viermal dieselbe Arbeit — und beim naechsten Umbau vergisst man
+     * eine davon.
+     */
+    ziel: { kind: 'field' | 'group'; ref: string };
+    /** Alle Felder VOR dem Ziel — nur die koennen darueber entscheiden. */
     vorgaenger: FormularFeld[];
     woerter: Woerter;
+    /** Wie das Ziel in den Saetzen heisst — „Frage" oder „Block". */
+    was: string;
     onChange: (definition: FormularDefinition) => void;
 }
 
@@ -68,18 +78,20 @@ interface Props {
  */
 export default function Bedingungen({
     definition,
-    feld,
+    ziel,
     vorgaenger,
     woerter,
+    was,
     onChange,
 }: Props) {
-    const regeln = regelnFuerZiel(definition, 'field', feld.name);
+    const regeln = regelnFuerZiel(definition, ziel.kind, ziel.ref);
 
     if (vorgaenger.length === 0) {
         return (
             <p className="pm-fb-hinweis">
-                Die erste {woerter.einzahl} kann von nichts abhängen — es ist noch
-                nichts beantwortet.
+                {was === 'Block'
+                    ? 'Ein Block ganz oben kann von nichts abhängen — es ist noch nichts beantwortet.'
+                    : `Die erste ${woerter.einzahl} kann von nichts abhängen — es ist noch nichts beantwortet.`}
             </p>
         );
     }
@@ -106,12 +118,7 @@ export default function Bedingungen({
                 type="button"
                 className="pm-fb-knopf"
                 onClick={() =>
-                    onChange(
-                        regelAnlegen(definition, vorgaenger[0]!.name, {
-                            kind: 'field',
-                            ref: feld.name,
-                        }),
-                    )
+                    onChange(regelAnlegen(definition, vorgaenger[0]!.name, ziel))
                 }
             >
                 + Bedingung
@@ -127,8 +134,9 @@ export default function Bedingungen({
             */}
             {regeln.some((regel) => regel.effect === 'show') && (
                 <p className="pm-fb-hinweis">
-                    Sobald es eine „zeigen"-Bedingung gibt, ist die{' '}
-                    {woerter.einzahl} verborgen, bis eine davon zutrifft.
+                    Sobald es eine „zeigen"-Bedingung gibt, ist{' '}
+                    {was === 'Block' ? 'der Block' : `die ${woerter.einzahl}`}{' '}
+                    verborgen, bis eine davon zutrifft.
                 </p>
             )}
         </div>

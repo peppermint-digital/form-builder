@@ -314,3 +314,154 @@ describe('Bedingungen an der Frage', () => {
         expect(screen.getByRole('button', { name: 'Wann zeigen? (1)' })).toBeTruthy();
     });
 });
+
+describe('Bloecke — eine Bedingung fuer mehrere Fragen', () => {
+    /** Genau der Aufbau, den der Nutzer am 10.09. auf demo hatte. */
+    const jaNeinMitFolge = (): FormularDefinition => ({
+        fields: [
+            { name: 'field_1', label: 'Was geht heute Abend bei Essen ab?', type: 'radio', options: ['Ja', 'Nein'] },
+            { name: 'field_2', label: 'Wie war das Essen?', type: 'scale', stufen: 5 },
+            { name: 'field_3', label: 'Woanders gegessen?', type: 'text' },
+        ],
+        layout: [
+            { type: 'row', columns: [['field_1']] },
+            { type: 'row', columns: [['field_2']] },
+            { type: 'row', columns: [['field_3']] },
+        ],
+    });
+
+    it('legt einen Block an', () => {
+        const onChange = zeichne(jaNeinMitFolge());
+
+        fireEvent.click(screen.getByRole('button', { name: /\+ Block/ }));
+
+        const neu: FormularDefinition = onChange.mock.calls[0]![0];
+        const gruppen = neu.layout!.filter((k) => k.type === 'group');
+        expect(gruppen).toHaveLength(1);
+    });
+
+    it('zeigt einen leeren Block statt ihn zu verstecken', () => {
+        const mit = jaNeinMitFolge();
+        mit.layout!.push({ type: 'group', id: 'g1', title: 'Wenn Nein', children: [] });
+
+        zeichne(mit);
+
+        // Ein Block, der erst beim ersten Feld erscheint, lässt sich nicht
+        // befüllen — man sieht nicht, wohin man schieben soll.
+        expect(screen.getByDisplayValue('Wenn Nein')).toBeTruthy();
+        expect(screen.getByText(/Noch leer/)).toBeTruthy();
+    });
+
+    it('legt eine Bedingung auf den BLOCK statt auf jede Frage', () => {
+        const mit = jaNeinMitFolge();
+        mit.layout = [
+            { type: 'row', columns: [['field_1']] },
+            {
+                type: 'group',
+                id: 'g1',
+                title: 'Wenn Nein',
+                children: [
+                    { type: 'row', columns: [['field_2']] },
+                    { type: 'row', columns: [['field_3']] },
+                ],
+            },
+        ];
+
+        const onChange = zeichne(mit);
+
+        // Index 1: Karte von field_1 steht davor, der Block danach.
+        fireEvent.click(screen.getAllByRole('button', { name: /Wann zeigen\?/ })[1]!);
+        fireEvent.click(screen.getByRole('button', { name: '+ Bedingung' }));
+
+        // EINE Regel für zwei Fragen — das ist der ganze Grund für Blöcke.
+        const neu: FormularDefinition = onChange.mock.calls[0]![0];
+        expect(neu.conditions).toHaveLength(1);
+        expect(neu.conditions![0]!.target).toEqual({ kind: 'group', ref: 'g1' });
+    });
+
+    it('nimmt als Quelle auch eine Frage AUSSERHALB des Blocks', () => {
+        const mit = jaNeinMitFolge();
+        mit.layout = [
+            { type: 'row', columns: [['field_1']] },
+            {
+                type: 'group',
+                id: 'g1',
+                title: 'Wenn Nein',
+                children: [{ type: 'row', columns: [['field_2']] }],
+            },
+        ];
+
+        const onChange = zeichne(mit);
+
+        fireEvent.click(screen.getAllByRole('button', { name: /Wann zeigen\?/ })[1]!);
+        fireEvent.click(screen.getByRole('button', { name: '+ Bedingung' }));
+
+        // Genau der Fall, um den es geht: „wenn Frage 1 Nein, zeige diesen
+        // Block". Die Quelle steht außerhalb.
+        const neu: FormularDefinition = onChange.mock.calls[0]![0];
+        expect(neu.conditions![0]!.tests[0]!.field).toBe('field_1');
+    });
+
+    it('laesst eine Frage in einen Block wandern', () => {
+        const mit = jaNeinMitFolge();
+        mit.layout!.push({ type: 'group', id: 'g1', title: 'Wenn Nein', children: [] });
+
+        const onChange = zeichne(mit);
+
+        // Die Blockauswahl steht unter „Erweitert" — sie ist Aufbau, nicht Inhalt.
+        fireEvent.click(screen.getAllByRole('button', { name: 'Erweitert' })[1]!);
+        fireEvent.change(screen.getByLabelText('Gehört zum Block'), {
+            target: { value: 'g1' },
+        });
+
+        const neu: FormularDefinition = onChange.mock.calls[0]![0];
+        const gruppe = neu.layout!.find((k) => k.type === 'group');
+        expect(JSON.stringify(gruppe)).toContain('field_2');
+    });
+
+    it('behaelt die Fragen, wenn der Block aufgeloest wird', () => {
+        const mit = jaNeinMitFolge();
+        mit.layout = [
+            { type: 'row', columns: [['field_1']] },
+            {
+                type: 'group',
+                id: 'g1',
+                title: 'Wenn Nein',
+                children: [{ type: 'row', columns: [['field_2']] }],
+            },
+        ];
+
+        const onChange = zeichne(mit);
+
+        fireEvent.click(screen.getByRole('button', { name: /Block auflösen/ }));
+
+        // Ein Block ist Darstellung, eine Frage ist ein Datenschlüssel, unter
+        // dem Antworten liegen. „Auflösen" darf nie Daten kosten.
+        const neu: FormularDefinition = onChange.mock.calls[0]![0];
+        expect(neu.fields.map((f) => f.name)).toEqual(['field_1', 'field_2', 'field_3']);
+        expect(neu.layout!.some((k) => k.type === 'group')).toBe(false);
+    });
+
+    it('zaehlt die Fragen ueber den ganzen Bogen, nicht je Block', () => {
+        const mit = jaNeinMitFolge();
+        mit.layout = [
+            { type: 'row', columns: [['field_1']] },
+            {
+                type: 'group',
+                id: 'g1',
+                title: 'Wenn Nein',
+                children: [
+                    { type: 'row', columns: [['field_2']] },
+                    { type: 'row', columns: [['field_3']] },
+                ],
+            },
+        ];
+
+        zeichne(mit);
+
+        // „Frage 3 von 3" ist die Stelle im Bogen. Sie ändert sich nicht
+        // dadurch, dass jemand eine Klammer darum zieht.
+        expect(screen.getByText('Frage 1 von 3')).toBeTruthy();
+        expect(screen.getByText('Frage 3 von 3')).toBeTruthy();
+    });
+});

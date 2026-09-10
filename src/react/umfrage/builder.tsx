@@ -6,12 +6,23 @@ import {
     feldDuplizieren,
     feldEntfernen,
     feldHinzufuegen,
+    feldInRahmen,
     feldUmordnen,
     felderInReihenfolge,
+    layoutAufloesen,
     naechsterFeldname,
+    rahmenHinzufuegen,
+    rahmenListe,
+    rahmenVonFeld,
 } from '../../core';
-import type { FormularDefinition, RoheDefinition } from '../../core';
+import type {
+    AufgeloesterKnoten,
+    FormularDefinition,
+    FormularFeld,
+    RoheDefinition,
+} from '../../core';
 import type { FeldTypAuswahl } from '../editor/feldmaske';
+import Block from './block';
 import Fragekarte, { type Woerter } from './fragekarte';
 import { vorschlaege, type Typvorschlag } from './typwahl';
 
@@ -64,11 +75,110 @@ export default function UmfrageBuilder({
     const gelesen = definitionLesen(definition);
     const felder = felderInReihenfolge(gelesen);
     const typen = vorschlaege(zusatzTypen);
+    // `leereRahmenBehalten`: Ein frisch angelegter Block ist immer leer, und
+    // einer, der erst beim ersten Feld erscheint, laesst sich nicht befuellen.
+    const knoten = layoutAufloesen(gelesen, { leereRahmenBehalten: true });
+    const bloecke = rahmenListe(gelesen).filter((r) => r.art === 'group');
     const [wahlOffen, setWahlOffen] = useState(false);
     const [alleTypen, setAlleTypen] = useState(false);
 
     const hatVerzweigung = (gelesen.flow ?? []).length > 0;
     const hatBedingungen = (gelesen.conditions ?? []).length > 0;
+
+    /**
+     * Zeichnet die Struktur — Bloecke als Rahmen, Zeilen als Fragekarten.
+     *
+     * Die Nummerierung laeuft ueber ALLE Fragen und nicht je Block: „Frage 3
+     * von 7" ist die Stelle im Bogen, und die aendert sich nicht dadurch, dass
+     * jemand eine Klammer darum zieht.
+     */
+    const zeichnen = (liste: AufgeloesterKnoten[]): React.ReactNode[] =>
+        liste.flatMap((eintrag, i) => {
+            if (eintrag.type === 'group') {
+                return [
+                    <Block
+                        key={`block_${eintrag.id}`}
+                        definition={gelesen}
+                        id={eintrag.id}
+                        {...(eintrag.title !== undefined ? { title: eintrag.title } : { title: undefined })}
+                        vorgaenger={vorgaengerVon(eintrag)}
+                        woerter={woerter}
+                        onChange={onChange}
+                    >
+                        {eintrag.children.length === 0 ? (
+                            <p className="pm-fb-hinweis">
+                                Noch leer. Schieb {woerter.mehrzahl} über die Auswahl
+                                unter einer Frage hierher.
+                            </p>
+                        ) : (
+                            zeichnen(eintrag.children)
+                        )}
+                    </Block>,
+                ];
+            }
+
+            if (eintrag.type !== 'row') {
+                return [];
+            }
+
+            return eintrag.columns.flat().map((feld) => karte(feld));
+        });
+
+    /**
+     * Alle Fragen VOR diesem Knoten.
+     *
+     * Ueber die Gesamtreihenfolge und nicht ueber den Block: Eine Bedingung
+     * darf sich auf jede Frage stuetzen, die der Befragte schon beantwortet
+     * hat — auch auf eine ausserhalb des Blocks. Das ist ja gerade der Fall,
+     * um den es geht („wenn Frage 1 Nein, zeige diesen Block").
+     */
+    const vorgaengerVon = (knoten: AufgeloesterKnoten): FormularFeld[] => {
+        const erste = ersteFrageIn(knoten);
+
+        if (erste === null) {
+            return felder;
+        }
+
+        const index = felder.findIndex((f) => f.name === erste);
+
+        return index <= 0 ? [] : felder.slice(0, index);
+    };
+
+    const karte = (feld: FormularFeld) => {
+        const index = felder.findIndex((f) => f.name === feld.name);
+
+        return (
+            <Fragekarte
+                key={feld.name}
+                definition={gelesen}
+                feld={feld}
+                // Nur die Fragen DAVOR. Eine Bedingung auf eine spaetere waere
+                // im Formular nie erfuellt — sie saehe im Editor plausibel aus
+                // und taete nie etwas.
+                vorgaenger={felder.slice(0, Math.max(0, index))}
+                onDefinition={onChange}
+                nummer={index + 1}
+                anzahl={felder.length}
+                woerter={woerter}
+                typen={typen}
+                bloecke={bloecke}
+                aktuellerBlock={rahmenVonFeld(gelesen, feld.name)}
+                onBlock={(id: string | null) =>
+                    onChange(feldInRahmen(gelesen, feld.name, id))
+                }
+                {...(gesperrteFelder[feld.name] !== undefined
+                    ? { sperrgrund: gesperrteFelder[feld.name] }
+                    : {})}
+                onChange={(aenderungen) =>
+                    onChange(feldAendern(gelesen, feld.name, aenderungen))
+                }
+                onDuplizieren={() => onChange(feldDuplizieren(gelesen, feld.name))}
+                onEntfernen={() => onChange(feldEntfernen(gelesen, feld.name))}
+                onHoch={() => onChange(feldUmordnen(gelesen, feld.name, 'hoch'))}
+                onRunter={() => onChange(feldUmordnen(gelesen, feld.name, 'runter'))}
+            />
+        );
+    };
 
     const anlegen = (typ: Typvorschlag) => {
         const name = naechsterFeldname(gelesen);
@@ -109,32 +219,24 @@ export default function UmfrageBuilder({
                 </p>
             )}
 
-            {felder.map((feld, index) => (
-                <Fragekarte
-                    key={feld.name}
-                    definition={gelesen}
-                    feld={feld}
-                    // Nur die Fragen DAVOR. Eine Bedingung auf eine spaetere
-                    // waere im Formular nie erfuellt — sie saehe im Editor
-                    // plausibel aus und taete nie etwas.
-                    vorgaenger={felder.slice(0, index)}
-                    onDefinition={onChange}
-                    nummer={index + 1}
-                    anzahl={felder.length}
-                    woerter={woerter}
-                    typen={typen}
-                    {...(gesperrteFelder[feld.name] !== undefined
-                        ? { sperrgrund: gesperrteFelder[feld.name] }
-                        : {})}
-                    onChange={(aenderungen) =>
-                        onChange(feldAendern(gelesen, feld.name, aenderungen))
+            {/*
+                Durch die STRUKTUR statt durch eine flache Liste: Nur so werden
+                Bloecke sichtbar — und ein Block ist der Unterschied zwischen
+                einer Bedingung und vier gleichen.
+            */}
+            {zeichnen(knoten)}
+
+            {!wahlOffen && felder.length > 0 && (
+                <button
+                    type="button"
+                    className="pm-fb-knopf pm-fb-knopf--still"
+                    onClick={() =>
+                        onChange(rahmenHinzufuegen(gelesen, 'group', 'Neuer Block'))
                     }
-                    onDuplizieren={() => onChange(feldDuplizieren(gelesen, feld.name))}
-                    onEntfernen={() => onChange(feldEntfernen(gelesen, feld.name))}
-                    onHoch={() => onChange(feldUmordnen(gelesen, feld.name, 'hoch'))}
-                    onRunter={() => onChange(feldUmordnen(gelesen, feld.name, 'runter'))}
-                />
-            ))}
+                >
+                    + Block (mehrere {woerter.mehrzahl} unter einer Bedingung)
+                </button>
+            )}
 
             {!wahlOffen ? (
                 <button
@@ -199,4 +301,27 @@ export default function UmfrageBuilder({
             )}
         </div>
     );
+}
+
+/**
+ * Der Datenschluessel der ersten Frage in einem Knoten — oder `null`.
+ *
+ * Fuer die Vorgaengerliste eines Blocks: Sie endet dort, wo der Block anfaengt.
+ */
+function ersteFrageIn(knoten: AufgeloesterKnoten): string | null {
+    if (knoten.type === 'row') {
+        return knoten.columns.flat()[0]?.name ?? null;
+    }
+
+    if (knoten.type === 'group' || knoten.type === 'step') {
+        for (const kind of knoten.children) {
+            const treffer = ersteFrageIn(kind);
+
+            if (treffer !== null) {
+                return treffer;
+            }
+        }
+    }
+
+    return null;
 }

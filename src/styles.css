@@ -842,3 +842,36 @@
     min-height: 2.75rem;
     align-self: start;
 }
+
+.pm-fb-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    border: 2px dashed currentColor;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    min-width: 0;
+}
+
+.pm-fb-block__kopf {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.pm-fb-block__titel {
+    flex: 1;
+    min-width: 10rem;
+    font-weight: 600;
+}
+
+.pm-fb-block__inhalt {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.pm-fb-block .pm-fb-knopf {
+    min-height: 2.75rem;
+}
