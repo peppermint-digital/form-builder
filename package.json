@@ -1,7 +1,7 @@
 {
   "name": "@peppermint-digital/form-builder",
   "version": "0.7.0",
-  "description": "A drag & drop builder for data-safe form definitions in React and Vue. Owns the field contract, brings no UI library.",
+  "description": "A drag & drop builder for data-safe form definitions in React. Owns the field contract, brings no UI library.",
   "exports": {
     "./core": {
       "types": "./dist/core/index.d.ts",

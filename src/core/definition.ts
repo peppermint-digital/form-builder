@@ -585,8 +585,9 @@ export interface AnzeigeOption {
  * Vorkommen in der Praxis: Angaben aus einem CSV-Import und Optionen, die nach
  * der Anmeldung umbenannt wurden.
  *
- * Steht bewusst hier und nicht in der React-Schicht — ein Vue-Adapter braucht
- * dieselbe Regel, und zweimal geschrieben waere sie zweimal zu pflegen.
+ * Steht bewusst hier und nicht in der React-Schicht: die Regel gehoert zum
+ * Feldvertrag, nicht zur Darstellung. Zweimal geschrieben waere sie zweimal
+ * zu pflegen.
  */
 /**
  * Dasselbe fuer eine Mehrfachauswahl: mehrere Werte koennen aus der Liste

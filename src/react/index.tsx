@@ -37,8 +37,8 @@ export type {
 
 /*
  * Der gefuehrte Aufbau. KEIN eigener Einstiegspunkt wie `/react/graph`: Der
- * hat einen, weil React Flow schwer ist und ein Vue-Adapter sie nicht
- * gebrauchen kann. Diese Ansicht bringt keine Abhaengigkeit mit — es gaebe
- * nichts, was ein eigenes Buendel aus dem Kern heraushalten wuerde.
+ * hat einen, weil React Flow schwer ist und nicht jeder sie braucht. Diese
+ * Ansicht bringt keine Abhaengigkeit mit — es gaebe nichts, was ein eigenes
+ * Buendel aus dem Kern heraushalten wuerde.
  */
 export * from './umfrage';

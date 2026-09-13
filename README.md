@@ -1,7 +1,7 @@
 # @peppermint-digital/form-builder
 
-Baukasten für **Formular-Definitionen** — für Laravel-Anwendungen mit React
-(Vue folgt). Das Paket besteht aus zwei Teilen:
+Baukasten für **Formular-Definitionen** — für Laravel-Anwendungen mit React.
+Das Paket besteht aus zwei Teilen:
 
 | Manifest | Paket | Inhalt |
 |---|---|---|
@@ -42,9 +42,8 @@ import '@peppermint-digital/form-builder/styles.css';
 ```
 
 `@xyflow/react` ist eine **optionale** peerDependency. Wer nur Formulare
-zeichnet, installiert sie nicht und laedt sie nicht — und ein Vue-Adapter
-kann sie ohnehin nicht gebrauchen. Deshalb liegt der Editor unter
-`/react/graph` und nicht im Kernbuendel.
+zeichnet, installiert sie nicht und laedt sie nicht. Deshalb liegt der Editor
+unter `/react/graph` und nicht im Kernbuendel.
 
 Der Graph ist eine **Ansicht** auf die Definition, kein zweites Format. Die
 Struktur kommt aus `layout`, die Bedingungen aus `conditions` — unter `graph`
@@ -94,8 +93,8 @@ Aussehen will, reicht Bausteine herein:
 
 Der Grund ist praktisch: shadcn ist kopierter Code, kein Paket — `@/components/ui/select`
 ist ein Anwendungs-Alias, den ein npm-Paket gar nicht auflösen kann. Und Radix
-als peerDependency würde Vue-Anwendungen dauerhaft ausschließen. So bleibt der
-Kern framework-agnostisch.
+als peerDependency würde jede Anwendung auf dessen Bauteile festlegen. So bleibt
+der Kern frei von einer UI-Bibliothek.
 
 Wichtig an dieser Aufteilung: der Adapter zeichnet nur. **Was** er zeichnet,
 entscheidet weiter das Paket — welche Optionen es gibt, ob ein Bestandswert
@@ -256,5 +255,3 @@ der Anmeldung umbenannt wurden.
 Renderer, Editor mit Drag & Drop und die Laravel-Seite mit den vier Wächtern.
 **92 Tests** — 61 mit vitest, 31 mit Pest.
 
-Ein Vue-Adapter folgt. Der Kern ist framework-agnostisch, das ist dann nur
-noch die Zeichenschicht.
