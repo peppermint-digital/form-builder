@@ -194,6 +194,37 @@ describe('feldSchalter', () => {
         expect(screen.queryByText('Auf der Rechnung anzeigen')).toBeNull();
     });
 
+    it('haengt den Hinweis als Tooltip an, statt ihn darunterzuschreiben', () => {
+        /*
+         * Die Feldmaske ist schmal. Ein Absatz unter jedem Ankreuzfeld schiebt
+         * die eigentlichen Einstellungen aus dem Blick — gemeldet am
+         * 27.10.2026, woertlich: „das ist ein bisschen klein fuer das Feld".
+         */
+        render(
+            <FormularEditor
+                definition={mitFeldern}
+                onChange={() => {}}
+                feldSchalter={[
+                    {
+                        schluessel: 'auf_rechnung',
+                        label: 'Auf der Rechnung anzeigen',
+                        hinweis: 'Steuert nur den Beleg.',
+                    },
+                ]}
+            />,
+        );
+
+        maskeOeffnen(0);
+
+        const kaestchen = screen
+            .getByText('Auf der Rechnung anzeigen')
+            .closest('label')!;
+
+        expect(kaestchen.getAttribute('title')).toBe('Steuert nur den Beleg.');
+        // Und NICHT als sichtbarer Text — sonst steht beides da.
+        expect(screen.queryByText('Steuert nur den Beleg.')).toBeNull();
+    });
+
     it('zeigt den Schalter bei JEDEM Feld, wenn `nurFuer` fehlt', () => {
         render(
             <FormularEditor

@@ -71,7 +71,14 @@ export interface FeldSchalter {
     schluessel: string;
     /** Was neben dem Ankreuzfeld steht. */
     label: string;
-    /** Eine Zeile Erklaerung darunter. Optional. */
+    /**
+     * Eine kurze Erklaerung — als Tooltip beim Darueberfahren, nicht als Text
+     * unter dem Kaestchen.
+     *
+     * Die Feldmaske ist schmal; ein Absatz unter jedem Ankreuzfeld schiebt die
+     * eigentlichen Einstellungen aus dem Blick. Wer den Schalter kennt, will
+     * ihn anklicken und nicht lesen.
+     */
     hinweis?: string;
     /**
      * Was gilt, solange das Feld den Schluessel nicht traegt. Vorgabe `false`.
@@ -313,7 +320,13 @@ export default function Feldmaske({
             {feldSchalter
                 .filter((schalter) => passt(schalter, feld.name))
                 .map((schalter) => (
-                    <label className="pm-fb-option" key={schalter.schluessel}>
+                    <label
+                        className="pm-fb-option"
+                        key={schalter.schluessel}
+                        {...(schalter.hinweis !== undefined
+                            ? { title: schalter.hinweis }
+                            : {})}
+                    >
                         <input
                             type="checkbox"
                             checked={gesetzt(feld, schalter)}
@@ -323,14 +336,7 @@ export default function Feldmaske({
                                 } as Partial<FormularFeld>)
                             }
                         />
-                        <span>
-                            {schalter.label}
-                            {schalter.hinweis !== undefined && (
-                                <small className="pm-fb-maske__hinweis">
-                                    {schalter.hinweis}
-                                </small>
-                            )}
-                        </span>
+                        <span>{schalter.label}</span>
                     </label>
                 ))}
         </div>
