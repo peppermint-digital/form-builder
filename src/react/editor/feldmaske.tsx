@@ -51,6 +51,46 @@ interface Props {
      * — es verspricht etwas.
      */
     quellen?: QuellenAuswahl[];
+    /** Zusaetzliche Ankreuzfelder vom Produkt. */
+    feldSchalter?: FeldSchalter[];
+}
+
+/**
+ * Ein zusaetzliches Ankreuzfeld an der Feldmaske — vom Produkt beigesteuert.
+ *
+ * Warum allgemein und nicht als fertige Einstellung: Das Paket weiss nicht,
+ * was eine Rechnung ist, und soll es nicht wissen. Dieselbe Arbeitsteilung wie
+ * bei {@link FormularEditorProps.gesperrteFelder} — das Paket zeigt den
+ * Schalter, die Bedeutung gehoert dem Produkt.
+ *
+ * Der Wert landet unter `schluessel` direkt am Feld und wandert damit in die
+ * Definition, die das Produkt speichert.
+ */
+export interface FeldSchalter {
+    /** Der Schluessel am Feld — z. B. `auf_rechnung`. */
+    schluessel: string;
+    /** Was neben dem Ankreuzfeld steht. */
+    label: string;
+    /** Eine Zeile Erklaerung darunter. Optional. */
+    hinweis?: string;
+    /**
+     * Was gilt, solange das Feld den Schluessel nicht traegt. Vorgabe `false`.
+     *
+     * `true` ist fuer Faelle, in denen „nichts eingetragen" schon immer „ja"
+     * bedeutet hat — ein Bestandsfeld soll dann nicht stillschweigend das
+     * Gegenteil anzeigen.
+     */
+    vorgabe?: boolean;
+    /**
+     * Nur bei Feldern mit diesen Namen anbieten. Fehlt die Angabe, erscheint
+     * der Schalter bei JEDEM Feld.
+     *
+     * Verglichen wird ohne Ruecksicht auf Gross-/Kleinschreibung: Bestands-
+     * formulare nennen ihre Felder wie das Label („Name", „Unternehmen"), und
+     * ein Schalter, der dort nicht erscheint, waere genau fuer die Formulare
+     * weg, um die es geht.
+     */
+    nurFuer?: string[];
 }
 
 export interface QuellenAuswahl {
@@ -66,6 +106,7 @@ export default function Feldmaske({
     sperrgrund,
     zusatzTypen = [],
     quellen = [],
+    feldSchalter = [],
 }: Props) {
     const typen = [...STANDARD_TYPEN, ...zusatzTypen];
     const hatOptionen =
@@ -268,6 +309,54 @@ export default function Feldmaske({
                 />
                 <span>Pflichtfeld</span>
             </label>
+
+            {feldSchalter
+                .filter((schalter) => passt(schalter, feld.name))
+                .map((schalter) => (
+                    <label className="pm-fb-option" key={schalter.schluessel}>
+                        <input
+                            type="checkbox"
+                            checked={gesetzt(feld, schalter)}
+                            onChange={(e) =>
+                                onChange({
+                                    [schalter.schluessel]: e.target.checked,
+                                } as Partial<FormularFeld>)
+                            }
+                        />
+                        <span>
+                            {schalter.label}
+                            {schalter.hinweis !== undefined && (
+                                <small className="pm-fb-maske__hinweis">
+                                    {schalter.hinweis}
+                                </small>
+                            )}
+                        </span>
+                    </label>
+                ))}
         </div>
     );
+}
+
+/** Gilt dieser Schalter fuer das Feld mit diesem Namen? */
+function passt(schalter: FeldSchalter, name: string): boolean {
+    if (schalter.nurFuer === undefined || schalter.nurFuer.length === 0) {
+        return true;
+    }
+
+    return schalter.nurFuer.some(
+        (kandidat) => kandidat.toLowerCase() === (name ?? '').toLowerCase(),
+    );
+}
+
+/**
+ * Der Zustand des Schalters an diesem Feld.
+ *
+ * Traegt das Feld den Schluessel nicht, gilt die Vorgabe des Schalters — nicht
+ * `false`. Ein Bestandsfeld hat den Schalter nie gesehen; ihn als „nein" zu
+ * zeigen behauptete eine Entscheidung, die niemand getroffen hat.
+ */
+function gesetzt(feld: FormularFeld, schalter: FeldSchalter): boolean {
+    const wert = (feld as unknown as Record<string, unknown>)[schalter.schluessel];
+
+    return wert === undefined ? schalter.vorgabe === true : wert === true;
 }

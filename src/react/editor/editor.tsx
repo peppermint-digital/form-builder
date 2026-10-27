@@ -27,7 +27,11 @@ import {
     type LayoutKnoten,
     type RoheDefinition,
 } from '../../core';
-import Feldmaske, { type FeldTypAuswahl, type QuellenAuswahl } from './feldmaske';
+import Feldmaske, {
+    type FeldSchalter,
+    type FeldTypAuswahl,
+    type QuellenAuswahl,
+} from './feldmaske';
 
 export interface FormularEditorProps {
     definition: RoheDefinition;
@@ -51,6 +55,43 @@ export interface FormularEditorProps {
      * die Feldmaske durch — er kennt die Bedeutung nicht, nur das Produkt.
      */
     quellen?: QuellenAuswahl[];
+    /**
+     * Zusaetzliche Ankreuzfelder an der Feldmaske. Reicht der Editor
+     * unveraendert durch.
+     */
+    feldSchalter?: FeldSchalter[];
+    /**
+     * Felder mit FESTEM Schluessel, die das Produkt zur Auswahl stellt.
+     *
+     * Wozu: Ein frei getippter Feldname ist fuer das Produkt nicht
+     * vorhersehbar. Wer seine Daten danach liest, muss raten — und wer raet,
+     * raet irgendwann falsch. Bei Feldern, an denen fuer das Produkt etwas
+     * haengt (Rechnungsempfaenger, Mailversand, Anschrift), ist das kein
+     * Schoenheitsfehler, sondern eine stille Fehlerquelle.
+     *
+     * Deshalb kann das Produkt hier einen Katalog mitgeben. Wird ein Eintrag
+     * gewaehlt, entsteht ein Feld mit genau diesem Schluessel und Typ. Die
+     * BESCHRIFTUNG bleibt frei — sie gehoert dem Nutzer, der Schluessel nicht.
+     *
+     * Leer oder nicht gesetzt heisst: Die Auswahl erscheint gar nicht.
+     */
+    festeFelder?: FestesFeld[];
+}
+
+/**
+ * Ein Feld mit festem Schluessel aus dem Katalog des Produkts.
+ */
+export interface FestesFeld {
+    /** Der Schluessel, der gesetzt wird — unveraenderlich. */
+    schluessel: string;
+    /** Was in der Auswahl steht — z. B. „Firmenname". */
+    label: string;
+    /** Der Feldtyp, der gesetzt wird. */
+    typ: string;
+    /** Ob das Feld als Pflichtfeld entsteht. */
+    pflicht?: boolean;
+    /** Die Beschriftung, mit der es entsteht. Fehlt sie, gilt `label`. */
+    beschriftung?: string;
 }
 
 /**
@@ -147,12 +188,22 @@ export default function FormularEditor({
     gesperrteFelder = {},
     zusatzTypen = [],
     quellen = [],
+    feldSchalter = [],
+    festeFelder = [],
 }: FormularEditorProps) {
     const [offen, setOffen] = useState<string | null>(null);
 
     const gelesen = layoutSicherstellen(definitionLesen(definition));
     const { fields, layout } = gelesen;
     const nachName = new Map(fields.map((feld) => [feld.name, feld]));
+
+    /*
+     * Kleingeschrieben verglichen: Ein Formular, das sein Feld „Name" nennt,
+     * darf nicht zusaetzlich ein „name" aus dem Katalog bekommen. Die beiden
+     * wuerden sich in den Antworten ueberschreiben, und welches gewinnt, waere
+     * Zufall.
+     */
+    const vorhandeneNamen = fields.map((feld) => (feld.name ?? '').toLowerCase());
 
     const sensoren = useSensors(
         useSensor(PointerSensor, {
@@ -175,6 +226,34 @@ export default function FormularEditor({
 
         onChange(feldHinzufuegen(gelesen, neu));
         setOffen(name);
+    };
+
+    /**
+     * Legt ein Feld aus dem Katalog an — mit festem Schluessel.
+     *
+     * Kein `naechsterFeldname()`: Der Schluessel IST die Zusage an das Produkt.
+     * Gibt es ihn schon, passiert nichts; der Eintrag ist in der Auswahl dann
+     * ohnehin abgeschaltet, und zwei Felder mit demselben Namen wuerden sich
+     * in den Antworten ueberschreiben.
+     */
+    const festesFeldHinzu = (schluessel: string) => {
+        const vorlage = festeFelder.find((f) => f.schluessel === schluessel);
+
+        if (vorlage === undefined || vorhandeneNamen.includes(schluessel.toLowerCase())) {
+            return;
+        }
+
+        onChange(
+            feldHinzufuegen(gelesen, {
+                id: `feld_${vorlage.schluessel}`,
+                name: vorlage.schluessel,
+                label: vorlage.beschriftung ?? vorlage.label,
+                type: vorlage.typ,
+                required: vorlage.pflicht === true,
+            } as FormularFeld),
+        );
+
+        setOffen(vorlage.schluessel);
     };
 
     const beimAblegen = (event: DragEndEvent) => {
@@ -404,6 +483,7 @@ export default function FormularEditor({
                                                             feld={feld}
                                                             zusatzTypen={zusatzTypen}
                                                             quellen={quellen}
+                                                            feldSchalter={feldSchalter}
                                                             sperrgrund={gesperrteFelder[name]}
                                                             onChange={(aenderungen) => {
                                                                 onChange(
@@ -447,6 +527,31 @@ export default function FormularEditor({
                 <button type="button" className="pm-fb-knopf" onClick={feldHinzu}>
                     Feld hinzufügen
                 </button>
+
+                {festeFelder.length > 0 && (
+                    <select
+                        className="pm-fb-knopf"
+                        value=""
+                        aria-label="Festes Feld hinzufügen"
+                        onChange={(e) => {
+                            festesFeldHinzu(e.target.value);
+                            e.currentTarget.value = '';
+                        }}
+                    >
+                        <option value="">Festes Feld hinzufügen …</option>
+                        {festeFelder.map((f) => (
+                            <option
+                                key={f.schluessel}
+                                value={f.schluessel}
+                                disabled={vorhandeneNamen.includes(
+                                    f.schluessel.toLowerCase(),
+                                )}
+                            >
+                                {f.label}
+                            </option>
+                        ))}
+                    </select>
+                )}
             </div>
 
             <DndContext
