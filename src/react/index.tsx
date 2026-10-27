@@ -1,5 +1,11 @@
 export { Feldmaske, FormularEditor, STANDARD_TYPEN } from './editor';
-export type { FeldTypAuswahl, FormularEditorProps } from './editor';
+export type {
+    FeldSchalter,
+    FeldTypAuswahl,
+    FestesFeld,
+    FormularEditorProps,
+    QuellenAuswahl,
+} from './editor';
 export { default as FormularFeldEingabe } from './feld';
 export type { FormularFeldEingabeProps } from './feld';
 export { default as FormularRenderer } from './formular';
