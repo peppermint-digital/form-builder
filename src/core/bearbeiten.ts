@@ -536,6 +536,67 @@ export function naechsteRahmenkennung(
  * was hineinkommt. Damit sie trotzdem sichtbar ist, zeichnet der Editor
  * leere Rahmen mit — das Formular laesst sie weg.
  */
+/**
+ * Legt mehrere Felder auf einmal an — in einer EIGENEN Gruppe.
+ *
+ * Wozu: Felder, die fachlich zusammengehoeren, einzeln anzulegen und danach
+ * von Hand zu gruppieren ist Arbeit, die niemand machen will — und am Ende
+ * steht in einem Formular nicht, WAS fuer Felder das sind. In Peppermint
+ * Connect sind es die rechnungsrelevanten Angaben; der Rahmen traegt den
+ * Namen, und damit ist es fuer jeden lesbar, der das Formular spaeter oeffnet.
+ *
+ * Felder, deren Name schon vergeben ist, werden UEBERGANGEN statt umbenannt.
+ * Der Schluessel ist die Zusage an das Produkt; ein `company_2` waere eine
+ * stille zweite Frage, und die Antworten lagen danach auf zwei Schluesseln.
+ *
+ * Die Gruppe entsteht nur, wenn wirklich etwas hineinkommt. Ein leerer Rahmen
+ * mit einer Ueberschrift sieht aus wie ein Fehler.
+ */
+export function felderAlsGruppeHinzufuegen(
+    definition: FormularDefinition,
+    titel: string,
+    felder: FormularFeld[],
+): FormularDefinition {
+    const gesichert = layoutSicherstellen(definition);
+    const vergeben = new Set(
+        gesichert.fields.map((feld) => (feld.name ?? '').toLowerCase()),
+    );
+
+    const neue = felder.filter((feld) => {
+        const name = (feld.name ?? '').toLowerCase();
+
+        if (name === '' || vergeben.has(name)) {
+            return false;
+        }
+
+        vergeben.add(name);
+
+        return true;
+    });
+
+    if (neue.length === 0) {
+        return gesichert;
+    }
+
+    const id = naechsteRahmenkennung(gesichert, 'g');
+
+    const gruppe: LayoutGruppe = {
+        type: 'group',
+        id,
+        title: titel,
+        children: neue.map((feld) => ({
+            type: 'row',
+            columns: [[feld.name]],
+        })),
+    };
+
+    return {
+        ...gesichert,
+        fields: [...gesichert.fields, ...neue],
+        layout: [...gesichert.layout, gruppe],
+    };
+}
+
 export function rahmenHinzufuegen(
     definition: FormularDefinition,
     art: 'group' | 'step',

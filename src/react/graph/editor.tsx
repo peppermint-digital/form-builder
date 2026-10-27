@@ -21,6 +21,7 @@ import {
     feldEigeneZeile,
     feldEntfernen,
     feldHinzufuegen,
+    felderAlsGruppeHinzufuegen,
     feldInRahmen,
     feldNebenFeld,
     MAX_SPALTEN,
@@ -97,6 +98,12 @@ export interface GraphEditorProps {
     /** Felder mit festem Schluessel zur Auswahl — wie im Listen-Editor. */
     festeFelder?: FestesFeld[];
     /**
+     * Beschriftung fuer „alle fehlenden festen Felder auf einmal" — wie im
+     * Listen-Editor. Diese Ansicht ist in Connect die Vorgabe; ein Knopf nur
+     * dort waere einer, den niemand findet.
+     */
+    festeFelderBlock?: string;
+    /**
      * Bausteine, die die ANWENDUNG zeichnet — Terminauswahl, Workshops.
      *
      * Sie erscheinen im Graphen, damit das Bild vollstaendig ist. Sie sind
@@ -159,6 +166,7 @@ function GraphEditorInhalt({
     zusatzTypen = KEINE_TYPEN,
     feldSchalter = KEINE_SCHALTER,
     festeFelder = KEINE_FESTEN,
+    festeFelderBlock,
     systemBausteine = KEINE_BAUSTEINE,
     farbschema = 'light',
 }: GraphEditorProps) {
@@ -557,6 +565,34 @@ function GraphEditorInhalt({
         [festeFelder, gelesen, onChange],
     );
 
+    /** Legt alle noch fehlenden festen Felder in einer eigenen Gruppe an. */
+    const blockAnlegen = useCallback(() => {
+        const vorhanden = gelesen.fields.map((f) => (f.name ?? '').toLowerCase());
+        const offene = festeFelder.filter(
+            (f) => !vorhanden.includes(f.schluessel.toLowerCase()),
+        );
+
+        if (offene.length === 0 || festeFelderBlock === undefined) {
+            return;
+        }
+
+        onChange(
+            felderAlsGruppeHinzufuegen(
+                gelesen,
+                festeFelderBlock,
+                offene.map(
+                    (f) =>
+                        ({
+                            name: f.schluessel,
+                            label: f.beschriftung ?? f.label,
+                            type: f.typ,
+                            required: f.pflicht === true,
+                        }) as FormularFeld,
+                ),
+            ),
+        );
+    }, [festeFelder, festeFelderBlock, gelesen, onChange]);
+
     const rahmen = useMemo(() => rahmenListe(gelesen), [gelesen]);
     const bezug = gewaehlt ? knotenRef(gewaehlt) : null;
 
@@ -649,6 +685,12 @@ function GraphEditorInhalt({
                 <button type="button" className="pm-fb-knopf" onClick={feldAnlegen}>
                     Feld hinzufügen
                 </button>
+
+                {festeFelderBlock !== undefined && festeFelder.length > 0 && (
+                    <button type="button" className="pm-fb-knopf" onClick={blockAnlegen}>
+                        {festeFelderBlock} ergänzen
+                    </button>
+                )}
 
                 {festeFelder.length > 0 && (
                     <select

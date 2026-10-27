@@ -16,6 +16,7 @@ import {
     feldAendern,
     feldEntfernen,
     feldHinzufuegen,
+    felderAlsGruppeHinzufuegen,
     feldVerschieben,
     knotenEntfernen,
     layoutSicherstellen,
@@ -76,6 +77,17 @@ export interface FormularEditorProps {
      * Leer oder nicht gesetzt heisst: Die Auswahl erscheint gar nicht.
      */
     festeFelder?: FestesFeld[];
+    /**
+     * Beschriftung fuer „alle fehlenden festen Felder auf einmal".
+     *
+     * Gesetzt: Neben der Einzelauswahl erscheint ein Knopf, der alles aus
+     * {@link festeFelder} in EINER Gruppe mit diesem Titel anlegt. Fehlt die
+     * Angabe, gibt es nur die Einzelauswahl.
+     *
+     * Der Titel ist nicht Kosmetik: Er steht danach im Formular und sagt dem
+     * naechsten Leser, WAS das fuer Felder sind.
+     */
+    festeFelderBlock?: string;
 }
 
 /**
@@ -190,6 +202,7 @@ export default function FormularEditor({
     quellen = [],
     feldSchalter = [],
     festeFelder = [],
+    festeFelderBlock,
 }: FormularEditorProps) {
     const [offen, setOffen] = useState<string | null>(null);
 
@@ -254,6 +267,34 @@ export default function FormularEditor({
         );
 
         setOffen(vorlage.schluessel);
+    };
+
+    /** Legt alle noch fehlenden festen Felder in einer eigenen Gruppe an. */
+    const blockHinzu = () => {
+        const offene = festeFelder.filter(
+            (f) => !vorhandeneNamen.includes(f.schluessel.toLowerCase()),
+        );
+
+        if (offene.length === 0 || festeFelderBlock === undefined) {
+            return;
+        }
+
+        onChange(
+            felderAlsGruppeHinzufuegen(
+                gelesen,
+                festeFelderBlock,
+                offene.map(
+                    (f) =>
+                        ({
+                            id: `feld_${f.schluessel}`,
+                            name: f.schluessel,
+                            label: f.beschriftung ?? f.label,
+                            type: f.typ,
+                            required: f.pflicht === true,
+                        }) as FormularFeld,
+                ),
+            ),
+        );
     };
 
     const beimAblegen = (event: DragEndEvent) => {
@@ -527,6 +568,12 @@ export default function FormularEditor({
                 <button type="button" className="pm-fb-knopf" onClick={feldHinzu}>
                     Feld hinzufügen
                 </button>
+
+                {festeFelderBlock !== undefined && festeFelder.length > 0 && (
+                    <button type="button" className="pm-fb-knopf" onClick={blockHinzu}>
+                        {festeFelderBlock} ergänzen
+                    </button>
+                )}
 
                 {festeFelder.length > 0 && (
                     <select

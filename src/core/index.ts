@@ -32,7 +32,7 @@ export {
     regelEntfernen,
     regelnFuerZiel,
 } from './bedingungen';
-export { feldDuplizieren, feldUmordnen } from './bearbeiten';
+export { feldDuplizieren, feldUmordnen, felderAlsGruppeHinzufuegen } from './bearbeiten';
 export {
     listeLesen,
     NPS_DETRAKTOR_BIS,

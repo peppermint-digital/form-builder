@@ -295,3 +295,124 @@ describe('feldSchalter', () => {
         expect(feld.auf_rechnung).toBe(false);
     });
 });
+
+/**
+ * Alle fehlenden festen Felder auf einmal — in einer benannten Gruppe
+ * (27.10.2026).
+ *
+ * Woertlich gewuenscht: „ist der beste weg beides. Es muss klar werden, was
+ * das für Felder sind." Einzeln anzulegen und danach von Hand zu gruppieren
+ * ist Arbeit, die niemand macht — und am Ende steht im Formular nicht, WAS
+ * fuer Felder das sind. Der Rahmen traegt den Namen und beantwortet das.
+ */
+describe('festeFelderBlock', () => {
+    const katalog: FestesFeld[] = [
+        { schluessel: 'first_name', label: 'Vorname', typ: 'text', pflicht: true },
+        { schluessel: 'last_name', label: 'Nachname', typ: 'text', pflicht: true },
+        { schluessel: 'company', label: 'Firmenname', typ: 'text' },
+    ];
+
+    it('zeigt den Knopf nur, wenn eine Beschriftung mitkommt', () => {
+        const { rerender } = render(
+            <FormularEditor
+                definition={leer}
+                onChange={() => {}}
+                festeFelder={katalog}
+            />,
+        );
+
+        expect(screen.queryByText('Rechnungsangaben ergänzen')).toBeNull();
+
+        rerender(
+            <FormularEditor
+                definition={leer}
+                onChange={() => {}}
+                festeFelder={katalog}
+                festeFelderBlock="Rechnungsangaben"
+            />,
+        );
+
+        expect(screen.getByText('Rechnungsangaben ergänzen')).toBeDefined();
+    });
+
+    it('legt alle Felder in EINER Gruppe mit dem gegebenen Titel an', () => {
+        const onChange = vi.fn();
+
+        render(
+            <FormularEditor
+                definition={leer}
+                onChange={onChange}
+                festeFelder={katalog}
+                festeFelderBlock="Rechnungsangaben"
+            />,
+        );
+
+        fireEvent.click(screen.getByText('Rechnungsangaben ergänzen'));
+
+        const neu = onChange.mock.calls[0]?.[0];
+
+        expect(neu.fields.map((f: { name: string }) => f.name)).toEqual([
+            'first_name',
+            'last_name',
+            'company',
+        ]);
+
+        // Und zwar in einer Gruppe, die sagt, was es ist.
+        const gruppe = neu.layout.find(
+            (k: { type: string }) => k.type === 'group',
+        );
+
+        expect(gruppe.title).toBe('Rechnungsangaben');
+        expect(gruppe.children).toHaveLength(3);
+    });
+
+    it('uebernimmt Pflichtkennzeichen und Typ aus dem Katalog', () => {
+        const onChange = vi.fn();
+
+        render(
+            <FormularEditor
+                definition={leer}
+                onChange={onChange}
+                festeFelder={[
+                    { schluessel: 'email', label: 'E-Mail', typ: 'email', pflicht: true },
+                ]}
+                festeFelderBlock="Rechnungsangaben"
+            />,
+        );
+
+        fireEvent.click(screen.getByText('Rechnungsangaben ergänzen'));
+
+        const feld = onChange.mock.calls[0]?.[0].fields[0];
+
+        expect(feld.type).toBe('email');
+        expect(feld.required).toBe(true);
+    });
+
+    it('uebergeht einen Schluessel, den es schon gibt — statt ihn umzubenennen', () => {
+        /*
+         * Ein `company_2` waere eine stille zweite Frage, und die Antworten
+         * laegen danach auf zwei Schluesseln. Dieselbe Falle wie bei Bug #667.
+         */
+        const onChange = vi.fn();
+
+        render(
+            <FormularEditor
+                definition={{
+                    fields: [{ name: 'Company', label: 'Firma', type: 'text' }],
+                }}
+                onChange={onChange}
+                festeFelder={katalog}
+                festeFelderBlock="Rechnungsangaben"
+            />,
+        );
+
+        fireEvent.click(screen.getByText('Rechnungsangaben ergänzen'));
+
+        const namen = onChange.mock.calls[0]?.[0].fields.map(
+            (f: { name: string }) => f.name,
+        );
+
+        // „Company" bleibt, `company` kommt NICHT dazu.
+        expect(namen).toEqual(['Company', 'first_name', 'last_name']);
+    });
+});
