@@ -405,3 +405,95 @@ describe('GraphEditor', () => {
         expect(screen.queryByText('Feld entfernen')).toBeNull();
     });
 });
+
+/**
+ * Die Erweiterungspunkte des Produkts — auch hier (27.10.2026).
+ *
+ * Diese Ansicht ist in Peppermint Connect die VORGABE. Gaebe es `festeFelder`
+ * und `feldSchalter` nur im Listen-Editor, saehe der Nutzer sie nie und hielte
+ * sie fuer nicht vorhanden. Der Haken „auf der Rechnung anzeigen" waere damit
+ * eine Einstellung, die niemand findet.
+ */
+describe('GraphEditor mit Produkt-Erweiterungen', () => {
+    const katalog = [
+        { schluessel: 'company', label: 'Firmenname', typ: 'text' },
+    ];
+
+    it('zeigt die Auswahl fester Felder nur, wenn ein Katalog mitkommt', () => {
+        const { rerender } = render(
+            <GraphEditor definition={{ fields: [] }} onChange={() => {}} />,
+        );
+
+        expect(screen.queryByLabelText('Festes Feld hinzufügen')).toBeNull();
+
+        rerender(
+            <GraphEditor
+                definition={{ fields: [] }}
+                onChange={() => {}}
+                festeFelder={katalog}
+            />,
+        );
+
+        expect(screen.getByLabelText('Festes Feld hinzufügen')).toBeDefined();
+    });
+
+    it('legt das feste Feld mit dem Schluessel aus dem Katalog an', () => {
+        const onChange = vi.fn();
+
+        render(
+            <GraphEditor
+                definition={{ fields: [] }}
+                onChange={onChange}
+                festeFelder={katalog}
+            />,
+        );
+
+        fireEvent.change(screen.getByLabelText('Festes Feld hinzufügen'), {
+            target: { value: 'company' },
+        });
+
+        expect(onChange.mock.calls[0]?.[0].fields[0].name).toBe('company');
+    });
+
+    it('legt einen vorhandenen Schluessel nicht zweimal an — auch nicht anders geschrieben', () => {
+        const onChange = vi.fn();
+
+        render(
+            <GraphEditor
+                definition={{ fields: [feld('Company')] }}
+                onChange={onChange}
+                festeFelder={katalog}
+            />,
+        );
+
+        fireEvent.change(screen.getByLabelText('Festes Feld hinzufügen'), {
+            target: { value: 'company' },
+        });
+
+        expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('reicht die Feldschalter an die Feldmaske durch', () => {
+        const definition: FormularDefinition = { fields: [feld('Name')] };
+
+        const { container } = render(
+            <GraphEditor
+                definition={definition}
+                onChange={() => {}}
+                feldSchalter={[
+                    {
+                        schluessel: 'auf_rechnung',
+                        label: 'Auf der Rechnung anzeigen',
+                        vorgabe: true,
+                        nurFuer: ['name'],
+                    },
+                ]}
+            />,
+        );
+
+        // Das Feld auf der Flaeche waehlen — erst dann erscheint die Maske.
+        fireEvent.click(flaeche(container).getByText('Name'));
+
+        expect(screen.getByText('Auf der Rechnung anzeigen')).toBeDefined();
+    });
+});

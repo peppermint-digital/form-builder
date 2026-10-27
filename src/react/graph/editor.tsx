@@ -37,7 +37,11 @@ import {
     type Knotenposition,
     type RoheDefinition,
 } from '../../core';
-import Feldmaske, { type FeldTypAuswahl } from '../editor/feldmaske';
+import Feldmaske, {
+    type FeldSchalter,
+    type FeldTypAuswahl,
+} from '../editor/feldmaske';
+import type { FestesFeld } from '../editor/editor';
 import type { Systembaustein } from '../typen';
 import {
     anordnungVergessen,
@@ -83,6 +87,16 @@ export interface GraphEditorProps {
     /** Zusaetzliche, produkteigene Feldtypen — wie im Listen-Editor. */
     zusatzTypen?: FeldTypAuswahl[];
     /**
+     * Zusaetzliche Ankreuzfelder an der Feldmaske — wie im Listen-Editor.
+     *
+     * Muss hier stehen und nicht nur dort: Diese Ansicht ist in Peppermint
+     * Connect die VORGABE. Ein Schalter, den es nur in der Liste gibt, sieht
+     * der Nutzer nie und haelt ihn fuer nicht vorhanden.
+     */
+    feldSchalter?: FeldSchalter[];
+    /** Felder mit festem Schluessel zur Auswahl — wie im Listen-Editor. */
+    festeFelder?: FestesFeld[];
+    /**
      * Bausteine, die die ANWENDUNG zeichnet — Terminauswahl, Workshops.
      *
      * Sie erscheinen im Graphen, damit das Bild vollstaendig ist. Sie sind
@@ -108,6 +122,8 @@ export interface GraphEditorProps {
 const KEINE_BAUSTEINE: Systembaustein[] = [];
 
 const KEINE_TYPEN: FeldTypAuswahl[] = [];
+const KEINE_SCHALTER: FeldSchalter[] = [];
+const KEINE_FESTEN: FestesFeld[] = [];
 
 /**
  * Der Knoten-Editor.
@@ -141,6 +157,8 @@ function GraphEditorInhalt({
     gesperrteFelder = KEINE_SPERREN,
     hoehe = '600px',
     zusatzTypen = KEINE_TYPEN,
+    feldSchalter = KEINE_SCHALTER,
+    festeFelder = KEINE_FESTEN,
     systemBausteine = KEINE_BAUSTEINE,
     farbschema = 'light',
 }: GraphEditorProps) {
@@ -510,6 +528,35 @@ function GraphEditorInhalt({
         setGewaehlt(knotenId('feld', feld.name));
     }, [gelesen, onChange]);
 
+    /**
+     * Legt ein Feld aus dem Katalog an — mit festem Schluessel.
+     *
+     * Wie im Listen-Editor: kein `naechsterFeldname()`, denn der Schluessel
+     * IST die Zusage an das Produkt. Kleingeschrieben verglichen, damit ein
+     * vorhandenes „Name" nicht zusaetzlich ein „name" bekommt.
+     */
+    const festesFeldAnlegen = useCallback(
+        (schluessel: string) => {
+            const vorlage = festeFelder.find((f) => f.schluessel === schluessel);
+            const vorhanden = gelesen.fields.map((f) => (f.name ?? '').toLowerCase());
+
+            if (vorlage === undefined || vorhanden.includes(schluessel.toLowerCase())) {
+                return;
+            }
+
+            const feld = {
+                name: vorlage.schluessel,
+                label: vorlage.beschriftung ?? vorlage.label,
+                type: vorlage.typ,
+                required: vorlage.pflicht === true,
+            } as FormularFeld;
+
+            onChange(feldHinzufuegen(gelesen, feld));
+            setGewaehlt(knotenId('feld', feld.name));
+        },
+        [festeFelder, gelesen, onChange],
+    );
+
     const rahmen = useMemo(() => rahmenListe(gelesen), [gelesen]);
     const bezug = gewaehlt ? knotenRef(gewaehlt) : null;
 
@@ -602,6 +649,33 @@ function GraphEditorInhalt({
                 <button type="button" className="pm-fb-knopf" onClick={feldAnlegen}>
                     Feld hinzufügen
                 </button>
+
+                {festeFelder.length > 0 && (
+                    <select
+                        className="pm-fb-knopf"
+                        value=""
+                        aria-label="Festes Feld hinzufügen"
+                        onChange={(e) => {
+                            festesFeldAnlegen(e.target.value);
+                            e.currentTarget.value = '';
+                        }}
+                    >
+                        <option value="">Festes Feld hinzufügen …</option>
+                        {festeFelder.map((f) => (
+                            <option
+                                key={f.schluessel}
+                                value={f.schluessel}
+                                disabled={gelesen.fields.some(
+                                    (feld) =>
+                                        (feld.name ?? '').toLowerCase() ===
+                                        f.schluessel.toLowerCase(),
+                                )}
+                            >
+                                {f.label}
+                            </option>
+                        ))}
+                    </select>
+                )}
 
                 <button
                     type="button"
@@ -752,6 +826,7 @@ function GraphEditorInhalt({
                         </label>
 
                         <Feldmaske
+                            feldSchalter={feldSchalter}
                             feld={gewaehltesFeld}
                             onChange={(aenderungen) => {
                                 onChange(

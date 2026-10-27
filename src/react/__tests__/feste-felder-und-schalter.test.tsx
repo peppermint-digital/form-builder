@@ -72,7 +72,7 @@ describe('festeFelder', () => {
 
         expect(onChange).toHaveBeenCalledTimes(1);
 
-        const neu = onChange.mock.calls[0][0].fields[0];
+        const neu = onChange.mock.calls[0]?.[0].fields[0];
 
         // Der Schluessel IST die Zusage an das Produkt — kein `feld_1`.
         expect(neu.name).toBe('company');
@@ -103,7 +103,7 @@ describe('festeFelder', () => {
             target: { value: 'email' },
         });
 
-        const neu = onChange.mock.calls[0][0].fields[0];
+        const neu = onChange.mock.calls[0]?.[0].fields[0];
 
         expect(neu.required).toBe(true);
         expect(neu.label).toBe('Ihre E-Mail-Adresse');
@@ -159,7 +159,7 @@ describe('feldSchalter', () => {
      * erreicht, sieht aus wie eine Pruefung und ist keine.
      */
     function maskeOeffnen(position: number) {
-        fireEvent.click(screen.getAllByText('Bearbeiten')[position]);
+        fireEvent.click(screen.getAllByText('Bearbeiten')[position]!);
     }
 
     it('zeigt den Schalter nur bei den genannten Feldern — unabhaengig von der Schreibweise', () => {
@@ -229,10 +229,10 @@ describe('feldSchalter', () => {
 
         const kaestchen = screen
             .getByText('Auf der Rechnung anzeigen')
-            .closest('label')
-            ?.querySelector('input');
+            .closest('label')!
+            .querySelector('input')!;
 
-        expect((kaestchen as HTMLInputElement).checked).toBe(true);
+        expect(kaestchen.checked).toBe(true);
     });
 
     it('schreibt den Wert unter dem Schluessel ans Feld', () => {
@@ -250,14 +250,14 @@ describe('feldSchalter', () => {
 
         const kaestchen = screen
             .getByText('Auf der Rechnung anzeigen')
-            .closest('label')
-            ?.querySelector('input') as HTMLInputElement;
+            .closest('label')!
+            .querySelector('input')!;
 
         fireEvent.click(kaestchen);
 
         expect(onChange).toHaveBeenCalled();
 
-        const feld = onChange.mock.calls[0][0].fields.find(
+        const feld = onChange.mock.calls[0]?.[0].fields.find(
             (f: { name: string }) => f.name === 'Name',
         );
 
