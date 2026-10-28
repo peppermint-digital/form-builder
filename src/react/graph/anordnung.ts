@@ -137,10 +137,11 @@ export function knotenAusDefinition(
                             ref: feld.name,
                             art: 'feld',
                             ...(eltern ? { parentId: eltern } : {}),
-                            position: gespeichert[knotenId('feld', feld.name)] ?? {
-                                x: spaltenX,
-                                y: spaltenY,
-                            },
+                            position:
+                                gueltigePosition(
+                                    gespeichert[knotenId('feld', feld.name)],
+                                    eltern,
+                                ) ?? { x: spaltenX, y: spaltenY },
                             breite: MASSE.feldBreite,
                             hoehe: MASSE.feldHoehe,
                             titel: feld.label || feld.name,
@@ -175,7 +176,7 @@ export function knotenAusDefinition(
                 ref: eintrag.id,
                 art,
                 ...(eltern ? { parentId: eltern } : {}),
-                position: gespeichert[eigeneId] ?? { x, y },
+                position: gueltigePosition(gespeichert[eigeneId], eltern) ?? { x, y },
                 breite: 0,
                 hoehe: 0,
                 titel: eintrag.title || (art === 'gruppe' ? 'Gruppe' : 'Schritt'),
@@ -286,6 +287,37 @@ export function groesseSchreiben(
             },
         },
     };
+}
+
+/**
+ * Eine gespeicherte Position, aber nur wenn sie noch in denselben Rahmen
+ * gehoert.
+ *
+ * Eine Position innerhalb eines Rahmens ist RELATIV zu ihm. Wandert das Feld
+ * woanders hin, zeigt dieselbe Zahl irgendwohin — und weil die berechnete
+ * Position dann uebergangen wird, landet das Feld sichtbar neben oder auf
+ * seinen Nachbarn.
+ *
+ * Der Graph-Editor raeumt das beim Hineinziehen selbst auf. Diese Pruefung
+ * fangt die anderen Wege ab: Listenansicht, Schnittstelle, oder eine
+ * Anwendung, die eine Gruppe um vorhandene Zeilen legt.
+ *
+ * Beobachtet am 28.10.2026 in peppermint-connect: Nach einer serverseitig
+ * gebildeten Gruppe „Rechnungsangaben" ueberlappten sich im Graphen drei
+ * Felder — sie standen noch dort, wo sie VOR dem Rahmen gestanden hatten.
+ *
+ * Ohne `parent` gilt eine Position fuer die oberste Ebene. Damit bleiben
+ * Bestandsdefinitionen lesbar.
+ */
+function gueltigePosition(
+    gespeichert: Knotenposition | undefined,
+    eltern: string | undefined,
+): Knotenposition | undefined {
+    if (gespeichert === undefined) {
+        return undefined;
+    }
+
+    return gespeichert.parent === eltern ? gespeichert : undefined;
 }
 
 /**

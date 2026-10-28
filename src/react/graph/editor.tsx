@@ -349,6 +349,18 @@ function GraphEditorInhalt({
                 positionen[eintrag.id] = {
                     x: Math.round(eintrag.position.x),
                     y: Math.round(eintrag.position.y),
+
+                    /*
+                     * Den Rahmen mitschreiben, in dem die Position gilt.
+                     *
+                     * Ohne ihn lässt sich später nicht entscheiden, ob eine
+                     * gespeicherte Position noch gemeint ist: Innerhalb eines
+                     * Rahmens zählt sie relativ zu ihm, und ein Feld kann den
+                     * Rahmen auch außerhalb dieses Editors wechseln — über die
+                     * Listenansicht, eine Schnittstelle, oder weil eine
+                     * Anwendung eine Gruppe um vorhandene Zeilen legt.
+                     */
+                    ...(eintrag.parentId ? { parent: eintrag.parentId } : {}),
                 };
             }
 

@@ -310,6 +310,35 @@ export interface Ablaufkante {
 export interface Knotenposition {
     x: number;
     y: number;
+
+    /**
+     * Die Kennung des Rahmens, in dem diese Position gilt — oder `undefined`
+     * fuer die oberste Ebene.
+     *
+     * ## Warum das mitgespeichert wird
+     *
+     * Eine Position innerhalb eines Rahmens ist RELATIV zu ihm. Wandert das
+     * Feld in einen anderen Rahmen oder heraus, zeigt dieselbe Zahl
+     * irgendwohin.
+     *
+     * Der Graph-Editor raeumt das beim Hineinziehen selbst auf
+     * (`anordnungVergessen`). Aber ein Feld kann den Rahmen auch auf anderen
+     * Wegen wechseln: ueber die Listenansicht, ueber eine Schnittstelle, oder
+     * weil eine Anwendung eine Gruppe um vorhandene Zeilen legt. Auf diesen
+     * Wegen wusste bisher niemand, dass eine gespeicherte Position ungueltig
+     * geworden war.
+     *
+     * Beobachtet am 28.10.2026 in peppermint-connect: Nachdem eine Gruppe
+     * „Rechnungsangaben" serverseitig um vorhandene Zeilen gelegt und danach
+     * in der Listenansicht umsortiert wurde, ueberlappten sich im Graphen drei
+     * Felder — sie standen noch dort, wo sie VOR dem Rahmen gestanden hatten.
+     *
+     * Fehlt die Angabe, gilt die Position fuer die oberste Ebene. Damit
+     * bleiben Bestandsdefinitionen lesbar: Was dort steht, stammt aus einer
+     * Zeit, in der es nur die oberste Ebene gab oder der Graph-Editor selbst
+     * aufgeraeumt hat.
+     */
+    parent?: string;
 }
 
 /**
