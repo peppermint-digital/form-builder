@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { STUFEN_MAX, STUFEN_MIN, STUFEN_VORGABE } from '../../core';
 import type { FormularFeld, StandardFeldTyp } from '../../core';
 
@@ -118,6 +119,16 @@ export default function Feldmaske({
     const typen = [...STANDARD_TYPEN, ...zusatzTypen];
     const hatOptionen =
         feld.type === 'select' || feld.type === 'radio' || feld.type === 'checkboxes';
+
+    /*
+     * Ab wann eine Optionsliste zugeklappt erscheint.
+     *
+     * Zwölf passen in ein Textfeld, ohne dass man scrollen muss. Darüber
+     * verdeckt das Feld mehr, als es zeigt — bei den 250 Ländern des
+     * Landfeldes zeigte es vier Zeilen von 250.
+     */
+    const vieleOptionen = (feld.options ?? []).length > 12;
+    const [optionenOffen, setOptionenOffen] = useState(false);
     const istSkala = feld.type === 'scale';
     const istNps = feld.type === 'nps';
 
@@ -187,18 +198,45 @@ export default function Feldmaske({
             {hatOptionen && (
                 <label className="pm-fb-maske__feld">
                     <span>Optionen — eine je Zeile</span>
-                    <textarea
-                        className="pm-fb-eingabe pm-fb-eingabe--mehrzeilig"
-                        rows={4}
-                        value={(feld.options ?? []).join('\n')}
-                        /*
-                         * Hier wird bewusst NICHT bereinigt: wer gerade eine
-                         * neue Zeile angefangen hat, soll sie nicht unter dem
-                         * Cursor wegräumt bekommen. Leere Einträge fallen beim
-                         * Speichern weg (definitionBereinigen).
-                         */
-                        onChange={(e) => onChange({ options: e.target.value.split('\n') })}
-                    />
+
+                    {/*
+                     * Lange Listen stehen zusammengeklappt da.
+                     *
+                     * Seit das Landfeld 250 Einträge anbietet, war das
+                     * Textfeld hier nicht mehr zu gebrauchen: Es zeigte vier
+                     * Zeilen von 250, und wer darin scrollte, bearbeitete eine
+                     * Liste, die die Anwendung selbst pflegt.
+                     *
+                     * Zugeklappt steht nur, WAS drinsteht. Wer sie wirklich
+                     * ändern will, klappt sie auf — das ist dann eine
+                     * Entscheidung und kein Versehen.
+                     */}
+                    {vieleOptionen && !optionenOffen ? (
+                        <span className="pm-fb-maske__hinweis">
+                            {(feld.options ?? []).length} Einträge:{' '}
+                            {(feld.options ?? []).slice(0, 3).join(', ')} …{' '}
+                            <button
+                                type="button"
+                                className="pm-fb-maske__mehr"
+                                onClick={() => setOptionenOffen(true)}
+                            >
+                                bearbeiten
+                            </button>
+                        </span>
+                    ) : (
+                        <textarea
+                            className="pm-fb-eingabe pm-fb-eingabe--mehrzeilig"
+                            rows={vieleOptionen ? 12 : 4}
+                            value={(feld.options ?? []).join('\n')}
+                            /*
+                             * Hier wird bewusst NICHT bereinigt: wer gerade eine
+                             * neue Zeile angefangen hat, soll sie nicht unter dem
+                             * Cursor wegräumt bekommen. Leere Einträge fallen beim
+                             * Speichern weg (definitionBereinigen).
+                             */
+                            onChange={(e) => onChange({ options: e.target.value.split('\n') })}
+                        />
+                    )}
                 </label>
             )}
 
