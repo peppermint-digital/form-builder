@@ -133,8 +133,19 @@ export default function Feldmaske({
                     />
                 </label>
 
+                {/*
+                    „Feld-ID" und nicht „Feldname" (28.10.2026).
+                    
+                    Das Wort lud zur Verwechslung mit der Beschriftung ein —
+                    und genau die Verwechslung ist teuer: Unter diesem Wert
+                    liegen die Antworten. Wer ihn fuer eine Anzeige haelt,
+                    aendert ihn, und alle gespeicherten Werte sind unauffindbar.
+                    
+                    Die Trennung stand immer im Vertrag ({@link FormularFeld}),
+                    nur nicht in der Maske.
+                */}
                 <label className="pm-fb-maske__feld">
-                    <span>Feldname</span>
+                    <span>Feld-ID</span>
                     <input
                         className="pm-fb-eingabe"
                         value={feld.name}
